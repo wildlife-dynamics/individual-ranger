@@ -391,6 +391,40 @@ workflow:
           title: "Event Summary"
           data: ${{ workflow.persist_event_html.return }}
 
+  - title: Spatial Features
+    type: task-group
+    description: "Fetch spatial features from EarthRanger and render them as a map layer."
+    tasks:
+      - id: spatial_features
+        task: ecoscope_workflows_ext_custom.tasks.io.get_spatial_features
+        skipif:
+          conditions:
+            - never
+        partial:
+          client: ${{ workflow.er_client_name.return }}
+
+      - id: spatial_features_layer
+        task: ecoscope_workflows_ext_custom.tasks.results.create_spatial_features_layer
+        partial:
+          geodataframe: ${{ workflow.spatial_features.return }}
+
+  - title: Local Spatial Features
+    type: task-group
+    description: "Load spatial features from a local file and render them as a map layer."
+    tasks:
+      - id: local_spatial_file
+        task: ecoscope_workflows_ext_custom.tasks.io.load_local_spatial_file
+        skipif:
+          conditions:
+            - never
+
+      - id: local_spatial_features_layer
+        task: ecoscope_workflows_ext_custom.tasks.results.create_spatial_features_layer
+        partial:
+          geodataframe: ${{ workflow.local_spatial_file.return }}
+
+  # safe_spatial_layers removed — layers collected per-map below
+
   - title: Patrol Maps
     type: task-group
     description: "Create maps for patrol trajectories and events."
@@ -427,16 +461,38 @@ workflow:
             color_column: patrol_color
           data_url: null
 
+      - name: Patrol Tracks Map View State
+        id: patrol_map_view_state
+        task: ecoscope_workflows_ext_custom.tasks.results.view_state_from_layers
+        skipif:
+          conditions:
+            - never
+        partial:
+          layers:
+            - ${{ workflow.patrol_tracks_layer.return }}
+
+      - name: Collect Patrol Map Layers
+        id: patrol_map_layers
+        task: ecoscope_workflows_ext_icf.tasks.filter_skip_sentinels
+        skipif:
+          conditions:
+            - never
+        partial:
+          iterables:
+            - - ${{ workflow.spatial_features_layer.return }}
+            - - ${{ workflow.local_spatial_features_layer.return }}
+            - - ${{ workflow.patrol_tracks_layer.return }}
+
       - name: Draw Patrol Tracks Map
         id: patrol_tracks_map
         task: draw_map
         partial:
-          geo_layers: ${{ workflow.patrol_tracks_layer.return }}
+          geo_layers: ${{ workflow.patrol_map_layers.return }}
           tile_layers: ${{ workflow.base_maps.return }}
           static: false
           title: null
           max_zoom: 17
-          view_state: null
+          view_state: ${{ workflow.patrol_map_view_state.return }}
           legend_style:
             placement: bottom-right
 
@@ -498,16 +554,38 @@ workflow:
             color_column: event_color
           data_url: null
 
+      - name: Event Scatterplot Map View State
+        id: event_map_view_state
+        task: ecoscope_workflows_ext_custom.tasks.results.view_state_from_layers
+        skipif:
+          conditions:
+            - never
+        partial:
+          layers:
+            - ${{ workflow.event_layer.return }}
+
+      - name: Collect Event Map Layers
+        id: event_map_layers
+        task: ecoscope_workflows_ext_icf.tasks.filter_skip_sentinels
+        skipif:
+          conditions:
+            - never
+        partial:
+          iterables:
+            - - ${{ workflow.spatial_features_layer.return }}
+            - - ${{ workflow.local_spatial_features_layer.return }}
+            - - ${{ workflow.event_layer.return }}
+
       - name: Draw Event Scatterplot Map
         id: event_scatterplot_map
         task: draw_map
         partial:
-          geo_layers: ${{ workflow.event_layer.return }}
+          geo_layers: ${{ workflow.event_map_layers.return }}
           tile_layers: ${{ workflow.base_maps.return }}
           static: false
           title: null
           max_zoom: 17
-          view_state: null
+          view_state: ${{ workflow.event_map_view_state.return }}
           legend_style:
             placement: bottom-right
 

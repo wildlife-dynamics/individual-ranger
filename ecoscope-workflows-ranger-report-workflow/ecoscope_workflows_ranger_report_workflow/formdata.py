@@ -229,6 +229,29 @@ class PatrolAndEventTypes(BaseModel):
     patrol_and_events_params: Optional[PatrolAndEventsParams] = Field(None, title="")
 
 
+class PatrolMapViewState(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    max_zoom: Optional[float] = Field(20, title="Max Zoom")
+
+
+class EventMapViewState(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    max_zoom: Optional[float] = Field(20, title="Max Zoom")
+
+
+class PatrolMaps(BaseModel):
+    patrol_map_view_state: Optional[PatrolMapViewState] = Field(
+        None, title="Patrol Tracks Map View State"
+    )
+    event_map_view_state: Optional[EventMapViewState] = Field(
+        None, title="Event Scatterplot Map View State"
+    )
+
+
 class DownloadAttachments(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -293,6 +316,58 @@ class TableConfig(BaseModel):
     enable_filtering: Optional[bool] = Field(False, title="Enable Filtering")
     enable_download: Optional[bool] = Field(False, title="Enable Download")
     hide_header: Optional[bool] = Field(False, title="Hide Header")
+
+
+class FeatureSetQuery(BaseModel):
+    featureset_name: constr(min_length=1) = Field(
+        ...,
+        description="Display name of the featureset exactly as it appears in EarthRanger e.g. 'Boundaries'.",
+        title="Featureset Name",
+    )
+
+
+class LineStyle(BaseModel):
+    color: Optional[List[str]] = Field(
+        [],
+        description="Line hex colour(s) e.g. ['#E63946']. Cycles across rows.",
+        title="Color",
+    )
+    opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        1.0, description="Line opacity 0–1.", title="Opacity"
+    )
+    width: Optional[float] = Field(
+        2.0, description="Line width in pixels.", title="Width"
+    )
+
+
+class PointStyle(BaseModel):
+    color: Optional[List[str]] = Field(
+        [],
+        description="Fill hex colour(s). For SVG icons this tints the marker. Cycles across rows.",
+        title="Color",
+    )
+    size: Optional[float] = Field(
+        None,
+        description="Point radius / icon size in pixels. Leave empty to use the size set in EarthRanger.",
+        title="Size",
+    )
+
+
+class PolygonStyle(BaseModel):
+    fill_color: Optional[List[str]] = Field(
+        [],
+        description="Fill hex colour(s) e.g. ['#FFA500']. Cycles across rows.",
+        title="Fill Color",
+    )
+    stroke_color: Optional[str] = Field(
+        None, description="Border hex colour.", title="Stroke Color"
+    )
+    fill_opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        1.0, description="Fill opacity 0–1.", title="Fill Opacity"
+    )
+    stroke_width: Optional[float] = Field(
+        2.0, description="Border width in pixels.", title="Stroke Width"
+    )
 
 
 class ErClientName(BaseModel):
@@ -376,6 +451,118 @@ class ReportTables(BaseModel):
     )
 
 
+class LayerStyle(BaseModel):
+    polygon: Optional[List[PolygonStyle]] = Field(
+        [],
+        description="Polygon styling. Add one entry to override ER native colours.",
+        max_length=1,
+        title="Polygon",
+    )
+    line: Optional[List[LineStyle]] = Field(
+        [],
+        description="Line styling. Add one entry to override ER native colours.",
+        max_length=1,
+        title="Line",
+    )
+    point: Optional[List[PointStyle]] = Field(
+        [],
+        description="Point and icon marker styling. Add one entry to override ER native colours.",
+        max_length=1,
+        title="Point",
+    )
+
+
+class LocalSpatialFile(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    file_path: Optional[str] = Field(
+        "",
+        description="Path to the geospatial file. Supported formats: GeoJSON (.geojson), GeoPackage (.gpkg), and GeoParquet (.parquet / .geoparquet).",
+        title="File Path",
+    )
+    layer: Optional[str] = Field(
+        None,
+        description="Layer name within a GeoPackage file. Only required when the file contains multiple layers.",
+        title="Layer",
+    )
+    group_by: Optional[str] = Field(
+        "",
+        description="Column used to group features in the map legend e.g. 'name', 'category'.",
+        title="Group By",
+    )
+    legend_title: Optional[str] = Field(
+        "",
+        description="Label shown in the map legend e.g. 'Park Boundary'.",
+        title="Legend Title",
+    )
+    style: Optional[List[LayerStyle]] = Field(
+        None,
+        description="Optional: Customise how features are rendered on the map.",
+        max_length=1,
+        title="Style",
+    )
+
+
+class LocalSpatialFeatures(BaseModel):
+    local_spatial_file: Optional[LocalSpatialFile] = Field(None, title="")
+
+
+class FeatureIdQuery(BaseModel):
+    feature_id: str = Field(
+        ...,
+        description="UUID of a specific spatial feature available on EarthRanger.",
+        title="Feature Id",
+    )
+    style: Optional[List[LayerStyle]] = Field(
+        [],
+        description="Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
+        max_length=1,
+        title="Style",
+    )
+
+
+class FeatureTypeQuery(BaseModel):
+    feature_type: constr(min_length=1) = Field(
+        ...,
+        description="Feature type name as shown in EarthRanger e.g. 'Conservancy'.",
+        title="Feature Type",
+    )
+    style: Optional[List[LayerStyle]] = Field(
+        [],
+        description="Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
+        max_length=1,
+        title="Style",
+    )
+
+
+class EarthRangerSource(BaseModel):
+    query: Optional[Union[FeatureSetQuery, FeatureTypeQuery, FeatureIdQuery]] = Field(
+        None, title="Query"
+    )
+
+
+class SpatialFeatures1(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    source: Optional[EarthRangerSource] = Field(None, title="Source")
+    group_by: Optional[str] = Field(
+        "type_name",
+        description="Column used to group features in the map legend e.g. 'Feature Type' shows one legend entry per feature type.",
+        title="Group By",
+    )
+    legend_title: Optional[str] = Field(
+        "",
+        description="Label shown in the map legend e.g. 'Park Boundary'.",
+        title="Legend Title",
+    )
+
+
+class SpatialFeatures(BaseModel):
+    spatial_features: Optional[SpatialFeatures1] = Field(None, title="")
+
+
 class FormData(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -398,6 +585,21 @@ class FormData(BaseModel):
     field_: Optional[FieldModel] = Field(None, description="")
     Report_Tables: Optional[ReportTables] = Field(
         None, alias="Report Tables", description="Prepare data tables for the report."
+    )
+    Spatial_Features: Optional[SpatialFeatures] = Field(
+        None,
+        alias="Spatial Features",
+        description="Fetch spatial features from EarthRanger and render them as a map layer.",
+    )
+    Local_Spatial_Features: Optional[LocalSpatialFeatures] = Field(
+        None,
+        alias="Local Spatial Features",
+        description="Load spatial features from a local file and render them as a map layer.",
+    )
+    Patrol_Maps: Optional[PatrolMaps] = Field(
+        None,
+        alias="Patrol Maps",
+        description="Create maps for patrol trajectories and events.",
     )
     download_attachments: Optional[DownloadAttachments] = Field(
         None, title="Download Attachments"

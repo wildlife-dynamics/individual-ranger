@@ -42,7 +42,13 @@ from ecoscope_workflows_core.tasks.transformation import with_unit as with_unit
 from ecoscope_workflows_ext_custom.tasks.io import (
     download_event_attachments as download_event_attachments,
 )
+from ecoscope_workflows_ext_custom.tasks.io import (
+    get_spatial_features as get_spatial_features,
+)
 from ecoscope_workflows_ext_custom.tasks.io import html_to_png as html_to_png
+from ecoscope_workflows_ext_custom.tasks.io import (
+    load_local_spatial_file as load_local_spatial_file,
+)
 from ecoscope_workflows_ext_custom.tasks.io import (
     remove_file_scheme as remove_file_scheme,
 )
@@ -53,9 +59,15 @@ from ecoscope_workflows_ext_custom.tasks.results import (
 from ecoscope_workflows_ext_custom.tasks.results import (
     create_scatterplot_layer as create_scatterplot_layer,
 )
+from ecoscope_workflows_ext_custom.tasks.results import (
+    create_spatial_features_layer as create_spatial_features_layer,
+)
 from ecoscope_workflows_ext_custom.tasks.results import draw_map as draw_map
 from ecoscope_workflows_ext_custom.tasks.results import (
     set_base_maps_pydeck as set_base_maps_pydeck,
+)
+from ecoscope_workflows_ext_custom.tasks.results import (
+    view_state_from_layers as view_state_from_layers,
 )
 from ecoscope_workflows_ext_custom.tasks.skip import skip_to_none as skip_to_none
 from ecoscope_workflows_ext_custom.tasks.transformation import (
@@ -92,6 +104,9 @@ from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
 )
 from ecoscope_workflows_ext_icf.tasks import (
     filter_patrols_by_ranger_name as filter_patrols_by_ranger_name,
+)
+from ecoscope_workflows_ext_icf.tasks import (
+    filter_skip_sentinels as filter_skip_sentinels,
 )
 from ecoscope_workflows_ext_icf.tasks import format_coordinate as format_coordinate
 from ecoscope_workflows_ext_icf.tasks import (
@@ -149,17 +164,41 @@ def main(params: Params):
         "event_summary_html_table": ["formatted_event_table"],
         "persist_event_html": ["event_summary_html_table"],
         "event_summary_table_widget": ["persist_event_html"],
+        "spatial_features": ["er_client_name"],
+        "spatial_features_layer": ["spatial_features"],
+        "local_spatial_file": [],
+        "local_spatial_features_layer": ["local_spatial_file"],
         "patrol_colormap": ["patrol_trajectory"],
         "patrol_colormap_wgs84": ["patrol_colormap"],
         "patrol_tracks_layer": ["patrol_colormap_wgs84"],
-        "patrol_tracks_map": ["patrol_tracks_layer", "base_maps"],
+        "patrol_map_view_state": ["patrol_tracks_layer"],
+        "patrol_map_layers": [
+            "spatial_features_layer",
+            "local_spatial_features_layer",
+            "patrol_tracks_layer",
+        ],
+        "patrol_tracks_map": [
+            "patrol_map_layers",
+            "base_maps",
+            "patrol_map_view_state",
+        ],
         "persist_patrol_map": ["patrol_tracks_map"],
         "patrol_map_to_png": ["persist_patrol_map"],
         "patrol_tracks_map_widget": ["persist_patrol_map"],
         "event_colormap": ["event_type_display_names"],
         "event_colormap_wgs84": ["event_colormap"],
         "event_layer": ["event_colormap_wgs84"],
-        "event_scatterplot_map": ["event_layer", "base_maps"],
+        "event_map_view_state": ["event_layer"],
+        "event_map_layers": [
+            "spatial_features_layer",
+            "local_spatial_features_layer",
+            "event_layer",
+        ],
+        "event_scatterplot_map": [
+            "event_map_layers",
+            "base_maps",
+            "event_map_view_state",
+        ],
         "persist_event_map": ["event_scatterplot_map"],
         "event_map_to_png": ["persist_event_map"],
         "event_scatterplot_map_widget": ["persist_event_map"],
@@ -1055,6 +1094,77 @@ def main(params: Params):
             | (params_dict.get("event_summary_table_widget") or {}),
             method="call",
         ),
+        "spatial_features": Node(
+            async_task=get_spatial_features.validate()
+            .set_task_instance_id("spatial_features")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    never,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "client": DependsOn("er_client_name"),
+            }
+            | (params_dict.get("spatial_features") or {}),
+            method="call",
+        ),
+        "spatial_features_layer": Node(
+            async_task=create_spatial_features_layer.validate()
+            .set_task_instance_id("spatial_features_layer")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "geodataframe": DependsOn("spatial_features"),
+            }
+            | (params_dict.get("spatial_features_layer") or {}),
+            method="call",
+        ),
+        "local_spatial_file": Node(
+            async_task=load_local_spatial_file.validate()
+            .set_task_instance_id("local_spatial_file")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    never,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial=(params_dict.get("local_spatial_file") or {}),
+            method="call",
+        ),
+        "local_spatial_features_layer": Node(
+            async_task=create_spatial_features_layer.validate()
+            .set_task_instance_id("local_spatial_features_layer")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "geodataframe": DependsOn("local_spatial_file"),
+            }
+            | (params_dict.get("local_spatial_features_layer") or {}),
+            method="call",
+        ),
         "patrol_colormap": Node(
             async_task=apply_color_map.validate()
             .set_task_instance_id("patrol_colormap")
@@ -1127,6 +1237,63 @@ def main(params: Params):
             | (params_dict.get("patrol_tracks_layer") or {}),
             method="call",
         ),
+        "patrol_map_view_state": Node(
+            async_task=view_state_from_layers.validate()
+            .set_task_instance_id("patrol_map_view_state")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    never,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "layers": [
+                    DependsOn("patrol_tracks_layer"),
+                ],
+            }
+            | (params_dict.get("patrol_map_view_state") or {}),
+            method="call",
+        ),
+        "patrol_map_layers": Node(
+            async_task=filter_skip_sentinels.validate()
+            .set_task_instance_id("patrol_map_layers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    never,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "iterables": [
+                    [
+                        DependsOn("spatial_features_layer"),
+                    ],
+                    DependsOn(
+                        "{'asstr': 'spatial_features_layer', 'aslist': ['spatial_features_layer']}"
+                    ),
+                    [
+                        DependsOn("local_spatial_features_layer"),
+                    ],
+                    DependsOn(
+                        "{'asstr': 'local_spatial_features_layer', 'aslist': ['local_spatial_features_layer']}"
+                    ),
+                    [
+                        DependsOn("patrol_tracks_layer"),
+                    ],
+                    DependsOn(
+                        "{'asstr': 'patrol_tracks_layer', 'aslist': ['patrol_tracks_layer']}"
+                    ),
+                ],
+            }
+            | (params_dict.get("patrol_map_layers") or {}),
+            method="call",
+        ),
         "patrol_tracks_map": Node(
             async_task=draw_map.validate()
             .set_task_instance_id("patrol_tracks_map")
@@ -1141,12 +1308,12 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "geo_layers": DependsOn("patrol_tracks_layer"),
+                "geo_layers": DependsOn("patrol_map_layers"),
                 "tile_layers": DependsOn("base_maps"),
                 "static": False,
                 "title": None,
                 "max_zoom": 17,
-                "view_state": None,
+                "view_state": DependsOn("patrol_map_view_state"),
                 "legend_style": {
                     "placement": "bottom-right",
                 },
@@ -1288,6 +1455,61 @@ def main(params: Params):
             | (params_dict.get("event_layer") or {}),
             method="call",
         ),
+        "event_map_view_state": Node(
+            async_task=view_state_from_layers.validate()
+            .set_task_instance_id("event_map_view_state")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    never,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "layers": [
+                    DependsOn("event_layer"),
+                ],
+            }
+            | (params_dict.get("event_map_view_state") or {}),
+            method="call",
+        ),
+        "event_map_layers": Node(
+            async_task=filter_skip_sentinels.validate()
+            .set_task_instance_id("event_map_layers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    never,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "iterables": [
+                    [
+                        DependsOn("spatial_features_layer"),
+                    ],
+                    DependsOn(
+                        "{'asstr': 'spatial_features_layer', 'aslist': ['spatial_features_layer']}"
+                    ),
+                    [
+                        DependsOn("local_spatial_features_layer"),
+                    ],
+                    DependsOn(
+                        "{'asstr': 'local_spatial_features_layer', 'aslist': ['local_spatial_features_layer']}"
+                    ),
+                    [
+                        DependsOn("event_layer"),
+                    ],
+                    DependsOn("{'asstr': 'event_layer', 'aslist': ['event_layer']}"),
+                ],
+            }
+            | (params_dict.get("event_map_layers") or {}),
+            method="call",
+        ),
         "event_scatterplot_map": Node(
             async_task=draw_map.validate()
             .set_task_instance_id("event_scatterplot_map")
@@ -1302,12 +1524,12 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "geo_layers": DependsOn("event_layer"),
+                "geo_layers": DependsOn("event_map_layers"),
                 "tile_layers": DependsOn("base_maps"),
                 "static": False,
                 "title": None,
                 "max_zoom": 17,
-                "view_state": None,
+                "view_state": DependsOn("event_map_view_state"),
                 "legend_style": {
                     "placement": "bottom-right",
                 },

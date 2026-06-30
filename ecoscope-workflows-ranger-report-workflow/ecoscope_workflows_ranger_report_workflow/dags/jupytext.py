@@ -51,7 +51,13 @@ from ecoscope_workflows_core.tasks.transformation import with_unit as with_unit
 from ecoscope_workflows_ext_custom.tasks.io import (
     download_event_attachments as download_event_attachments,
 )
+from ecoscope_workflows_ext_custom.tasks.io import (
+    get_spatial_features as get_spatial_features,
+)
 from ecoscope_workflows_ext_custom.tasks.io import html_to_png as html_to_png
+from ecoscope_workflows_ext_custom.tasks.io import (
+    load_local_spatial_file as load_local_spatial_file,
+)
 from ecoscope_workflows_ext_custom.tasks.io import (
     remove_file_scheme as remove_file_scheme,
 )
@@ -62,9 +68,15 @@ from ecoscope_workflows_ext_custom.tasks.results import (
 from ecoscope_workflows_ext_custom.tasks.results import (
     create_scatterplot_layer as create_scatterplot_layer,
 )
+from ecoscope_workflows_ext_custom.tasks.results import (
+    create_spatial_features_layer as create_spatial_features_layer,
+)
 from ecoscope_workflows_ext_custom.tasks.results import draw_map as draw_map
 from ecoscope_workflows_ext_custom.tasks.results import (
     set_base_maps_pydeck as set_base_maps_pydeck,
+)
+from ecoscope_workflows_ext_custom.tasks.results import (
+    view_state_from_layers as view_state_from_layers,
 )
 from ecoscope_workflows_ext_custom.tasks.skip import skip_to_none as skip_to_none
 from ecoscope_workflows_ext_custom.tasks.transformation import (
@@ -101,6 +113,9 @@ from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
 )
 from ecoscope_workflows_ext_icf.tasks import (
     filter_patrols_by_ranger_name as filter_patrols_by_ranger_name,
+)
+from ecoscope_workflows_ext_icf.tasks import (
+    filter_skip_sentinels as filter_skip_sentinels,
 )
 from ecoscope_workflows_ext_icf.tasks import format_coordinate as format_coordinate
 from ecoscope_workflows_ext_icf.tasks import (
@@ -1427,6 +1442,126 @@ event_summary_table_widget = (
 
 
 # %% [markdown]
+# ##
+
+# %%
+# parameters
+
+spatial_features_params = dict(
+    source=...,
+    group_by=...,
+    legend_title=...,
+)
+
+# %%
+# call the task
+
+
+spatial_features = (
+    get_spatial_features.set_task_instance_id("spatial_features")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            never,
+        ],
+        unpack_depth=1,
+    )
+    .partial(client=er_client_name, **spatial_features_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ##
+
+# %%
+# parameters
+
+spatial_features_layer_params = dict()
+
+# %%
+# call the task
+
+
+spatial_features_layer = (
+    create_spatial_features_layer.set_task_instance_id("spatial_features_layer")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(geodataframe=spatial_features, **spatial_features_layer_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ##
+
+# %%
+# parameters
+
+local_spatial_file_params = dict(
+    file_path=...,
+    layer=...,
+    group_by=...,
+    legend_title=...,
+    style=...,
+)
+
+# %%
+# call the task
+
+
+local_spatial_file = (
+    load_local_spatial_file.set_task_instance_id("local_spatial_file")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            never,
+        ],
+        unpack_depth=1,
+    )
+    .partial(**local_spatial_file_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ##
+
+# %%
+# parameters
+
+local_spatial_features_layer_params = dict()
+
+# %%
+# call the task
+
+
+local_spatial_features_layer = (
+    create_spatial_features_layer.set_task_instance_id("local_spatial_features_layer")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(geodataframe=local_spatial_file, **local_spatial_features_layer_params)
+    .call()
+)
+
+
+# %% [markdown]
 # ## Apply Color to Patrols
 
 # %%
@@ -1533,6 +1668,69 @@ patrol_tracks_layer = (
 
 
 # %% [markdown]
+# ## Patrol Tracks Map View State
+
+# %%
+# parameters
+
+patrol_map_view_state_params = dict(
+    max_zoom=...,
+)
+
+# %%
+# call the task
+
+
+patrol_map_view_state = (
+    view_state_from_layers.set_task_instance_id("patrol_map_view_state")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            never,
+        ],
+        unpack_depth=1,
+    )
+    .partial(layers=[patrol_tracks_layer], **patrol_map_view_state_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Collect Patrol Map Layers
+
+# %%
+# parameters
+
+patrol_map_layers_params = dict()
+
+# %%
+# call the task
+
+
+patrol_map_layers = (
+    filter_skip_sentinels.set_task_instance_id("patrol_map_layers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            never,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        iterables=[
+            [spatial_features_layer],
+            [local_spatial_features_layer],
+            [patrol_tracks_layer],
+        ],
+        **patrol_map_layers_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Draw Patrol Tracks Map
 
 # %%
@@ -1558,12 +1756,12 @@ patrol_tracks_map = (
         unpack_depth=1,
     )
     .partial(
-        geo_layers=patrol_tracks_layer,
+        geo_layers=patrol_map_layers,
         tile_layers=base_maps,
         static=False,
         title=None,
         max_zoom=17,
-        view_state=None,
+        view_state=patrol_map_view_state,
         legend_style={"placement": "bottom-right"},
         **patrol_tracks_map_params,
     )
@@ -1775,6 +1973,69 @@ event_layer = (
 
 
 # %% [markdown]
+# ## Event Scatterplot Map View State
+
+# %%
+# parameters
+
+event_map_view_state_params = dict(
+    max_zoom=...,
+)
+
+# %%
+# call the task
+
+
+event_map_view_state = (
+    view_state_from_layers.set_task_instance_id("event_map_view_state")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            never,
+        ],
+        unpack_depth=1,
+    )
+    .partial(layers=[event_layer], **event_map_view_state_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Collect Event Map Layers
+
+# %%
+# parameters
+
+event_map_layers_params = dict()
+
+# %%
+# call the task
+
+
+event_map_layers = (
+    filter_skip_sentinels.set_task_instance_id("event_map_layers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            never,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        iterables=[
+            [spatial_features_layer],
+            [local_spatial_features_layer],
+            [event_layer],
+        ],
+        **event_map_layers_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Draw Event Scatterplot Map
 
 # %%
@@ -1800,12 +2061,12 @@ event_scatterplot_map = (
         unpack_depth=1,
     )
     .partial(
-        geo_layers=event_layer,
+        geo_layers=event_map_layers,
         tile_layers=base_maps,
         static=False,
         title=None,
         max_zoom=17,
-        view_state=None,
+        view_state=event_map_view_state,
         legend_style={"placement": "bottom-right"},
         **event_scatterplot_map_params,
     )

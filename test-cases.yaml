@@ -43,3 +43,10 @@ all-grouper:
       template_path: "/Users/zak/Documents/w-dynamics/individual-ranger/resources/templates/ICF Individual Ranger Report-3.docx"
     ranger_name:
       name: "Gabriel Antonio Regalado"
+
+    spatial_features:
+      source:
+        query: null
+
+    local_spatial_file:
+      layer: ""
