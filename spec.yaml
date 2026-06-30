@@ -471,6 +471,16 @@ workflow:
           layers:
             - ${{ workflow.patrol_tracks_layer.return }}
 
+      # Collect all layers for this map using filter_skip_sentinels.
+      # Each layer is wrapped in a nested list (- - ...) because filter_skip_sentinels
+      # only processes items that are already lists — a bare LayerDefinition would be
+      # silently dropped. The nested list also means a SkipSentinel inside it is correctly
+      # filtered out, so optional spatial layers are excluded when not configured.
+      #
+      # combine_map_layers was not used here because it imports LayerDefinition from
+      # ext_ecoscope, while create_path_layer and draw_map both use ext_custom's
+      # LayerDefinition (which adds layer_type and data_url fields). Pydantic rejects
+      # the ext_custom instance when the function expects the ext_ecoscope class.
       - name: Collect Patrol Map Layers
         id: patrol_map_layers
         task: ecoscope_workflows_ext_icf.tasks.filter_skip_sentinels
@@ -564,6 +574,7 @@ workflow:
           layers:
             - ${{ workflow.event_layer.return }}
 
+      # Same pattern as patrol_map_layers — see comment above.
       - name: Collect Event Map Layers
         id: event_map_layers
         task: ecoscope_workflows_ext_icf.tasks.filter_skip_sentinels
