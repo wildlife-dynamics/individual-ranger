@@ -1,0 +1,47 @@
+workflow_details:
+  name: "Ranger Report"
+  description: ""
+
+er_client_name:
+  data_source:
+    name: mep
+
+base_maps:
+  base_maps:
+    - url: >-
+        https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}
+      opacity: 1
+    - url: >-
+        https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}
+      opacity: 0.5
+
+patrol_and_events_params:
+  status:
+    - done
+    - active
+    - overdue
+    - cancelled
+
+patrol_trajectory:
+  trajectory_segment_filter:
+    min_length_meters: 0.001
+    max_length_meters: 500
+    min_time_secs: 1
+    max_time_secs: 172800
+    min_speed_kmhr: 0.01
+    max_speed_kmhr: 500
+
+template_path:
+  template_path: "/Users/zak/Documents/w-dynamics/individual-ranger/resources/templates/ICF Individual Ranger Report-3.docx"
+
+time_range:
+  since: 2025-01-01T00:00:00.000Z
+  until: 2026-03-12T23:59:00.000Z
+  timezone:
+    tzCode: CST
+    name: Tegucigalda
+    label: America/Tegucigalpa
+    utc: -06:00
+
+ranger_name:
+  name: "Tevin Temu"
