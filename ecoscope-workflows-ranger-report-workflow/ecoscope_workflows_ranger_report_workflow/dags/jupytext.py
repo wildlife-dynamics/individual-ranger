@@ -823,7 +823,7 @@ total_patrols_sv = (
         unpack_depth=1,
     )
     .partial(
-        title="Número Total",
+        title="Número de Patrullas",
         decimal_places=0,
         data=total_patrols,
         **total_patrols_sv_params,
@@ -1289,7 +1289,7 @@ patrol_summary_table_widget = (
         unpack_depth=1,
     )
     .partial(
-        title="Patrol Summary",
+        title="Resumen de Patrullas",
         data=persist_patrol_html,
         **patrol_summary_table_widget_params,
     )
@@ -1495,7 +1495,7 @@ event_summary_table_widget = (
         unpack_depth=1,
     )
     .partial(
-        title="Event Summary",
+        title="Resumen de Eventos",
         data=persist_event_html,
         **event_summary_table_widget_params,
     )
@@ -1997,7 +1997,7 @@ patrol_event_map_widget = (
         unpack_depth=1,
     )
     .partial(
-        title="Patrol and Event Map",
+        title="Mapa de Patrulla y Eventos",
         data=persist_patrol_event_map,
         **patrol_event_map_widget_params,
     )

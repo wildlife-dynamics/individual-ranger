@@ -562,7 +562,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Número Total",
+            title="Número de Patrullas",
             decimal_places=0,
             data=total_patrols,
             **(params_dict.get("total_patrols_sv") or {}),
@@ -867,7 +867,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Patrol Summary",
+            title="Resumen de Patrullas",
             data=persist_patrol_html,
             **(params_dict.get("patrol_summary_table_widget") or {}),
         )
@@ -1000,7 +1000,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Event Summary",
+            title="Resumen de Eventos",
             data=persist_event_html,
             **(params_dict.get("event_summary_table_widget") or {}),
         )
@@ -1319,7 +1319,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Patrol and Event Map",
+            title="Mapa de Patrulla y Eventos",
             data=persist_patrol_event_map,
             **(params_dict.get("patrol_event_map_widget") or {}),
         )

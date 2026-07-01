@@ -253,7 +253,7 @@ workflow:
           conditions:
             - never
         partial:
-          title: "Número Total"
+          title: "Número de Patrullas"
           decimal_places: 0
           data: ${{ workflow.total_patrols.return }}
 
@@ -403,7 +403,7 @@ workflow:
           conditions:
             - never
         partial:
-          title: "Patrol Summary"
+          title: "Resumen de Patrullas"
           data: ${{ workflow.persist_patrol_html.return }}
 
   - title: Event Summary Table
@@ -462,7 +462,7 @@ workflow:
           conditions:
             - never
         partial:
-          title: "Event Summary"
+          title: "Resumen de Eventos"
           data: ${{ workflow.persist_event_html.return }}
 
   - title: Patrol and Event Map
@@ -605,7 +605,7 @@ workflow:
           conditions:
             - never
         partial:
-          title: "Patrol and Event Map"
+          title: "Mapa de Patrulla y Eventos"
           data: ${{ workflow.persist_patrol_event_map.return }}
 
   # Events Notes & Attachments

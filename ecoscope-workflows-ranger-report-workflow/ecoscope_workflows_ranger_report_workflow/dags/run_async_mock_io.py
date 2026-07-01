@@ -694,7 +694,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Número Total",
+                "title": "Número de Patrullas",
                 "decimal_places": 0,
                 "data": DependsOn("total_patrols"),
             }
@@ -1003,7 +1003,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Patrol Summary",
+                "title": "Resumen de Patrullas",
                 "data": DependsOn("persist_patrol_html"),
             }
             | (params_dict.get("patrol_summary_table_widget") or {}),
@@ -1136,7 +1136,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Event Summary",
+                "title": "Resumen de Eventos",
                 "data": DependsOn("persist_event_html"),
             }
             | (params_dict.get("event_summary_table_widget") or {}),
@@ -1479,7 +1479,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Patrol and Event Map",
+                "title": "Mapa de Patrulla y Eventos",
                 "data": DependsOn("persist_patrol_event_map"),
             }
             | (params_dict.get("patrol_event_map_widget") or {}),
