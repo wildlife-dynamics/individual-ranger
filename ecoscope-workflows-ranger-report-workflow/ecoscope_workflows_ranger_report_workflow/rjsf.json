@@ -540,8 +540,9 @@
           "additionalProperties": false,
           "properties": {
             "var": {
-              "title": "",
+              "title": "Title",
               "type": "string",
+              "description": "Legend title for patrol tracks.",
               "default": "Tipo de patrulla",
               "ecoscope:advanced": false
             }
@@ -556,8 +557,9 @@
           "additionalProperties": false,
           "properties": {
             "var": {
-              "title": "",
+              "title": "Title",
               "type": "string",
+              "description": "Legend title for events.",
               "default": "Tipo de eventos",
               "ecoscope:advanced": false
             }

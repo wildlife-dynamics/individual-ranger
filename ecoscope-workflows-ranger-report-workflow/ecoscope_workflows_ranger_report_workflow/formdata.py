@@ -276,14 +276,14 @@ class PatrolLegendTitle(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    var: str = Field(..., title="")
+    var: str = Field(..., description="Legend title for patrol tracks.", title="Title")
 
 
 class EventLegendTitle(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    var: str = Field(..., title="")
+    var: str = Field(..., description="Legend title for events.", title="Title")
 
 
 class PatrolAndEventMap(BaseModel):

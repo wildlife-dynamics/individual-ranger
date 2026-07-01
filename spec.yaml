@@ -37,8 +37,12 @@ rjsf-overrides:
     Event Summary Table.properties.event_summary_html_table.properties.table_config.properties.enable_filtering.default: true
     Event Summary Table.properties.event_summary_html_table.properties.table_config.properties.enable_download.default: true
     Event Summary Table.properties.event_summary_html_table.properties.table_config.properties.hide_header.default: false
+    Patrol and Event Map.properties.patrol_legend_title.properties.var.title: Title
+    Patrol and Event Map.properties.patrol_legend_title.properties.var.description: Legend title for patrol tracks.
     Patrol and Event Map.properties.patrol_legend_title.properties.var.default: Tipo de patrulla
     Patrol and Event Map.properties.patrol_legend_title.properties.var.ecoscope:advanced: false
+    Patrol and Event Map.properties.event_legend_title.properties.var.title: Title
+    Patrol and Event Map.properties.event_legend_title.properties.var.description: Legend title for events.
     Patrol and Event Map.properties.event_legend_title.properties.var.default: Tipo de eventos
     Patrol and Event Map.properties.event_legend_title.properties.var.ecoscope:advanced: false
   $defs:
