@@ -49,3 +49,9 @@ ranger_name:
 spatial_features:
   source:
     query: null
+
+patrol_legend_title:
+  var: Tipo de patrulla
+
+event_legend_title:
+  var: Tipo de eventos

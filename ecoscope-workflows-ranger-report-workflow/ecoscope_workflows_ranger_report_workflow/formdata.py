@@ -272,6 +272,25 @@ class EventSummaryTable(BaseModel):
     event_summary_html_table: Optional[EventSummaryHtmlTable] = Field(None, title="")
 
 
+class PatrolLegendTitle(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    var: str = Field(..., title="")
+
+
+class EventLegendTitle(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    var: str = Field(..., title="")
+
+
+class PatrolAndEventMap(BaseModel):
+    patrol_legend_title: Optional[PatrolLegendTitle] = Field(None, title="")
+    event_legend_title: Optional[EventLegendTitle] = Field(None, title="")
+
+
 class DownloadAttachments(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -540,6 +559,11 @@ class FormData(BaseModel):
         None,
         alias="Event Summary Table",
         description="Prepare the event data table for the report.",
+    )
+    Patrol_and_Event_Map: Optional[PatrolAndEventMap] = Field(
+        None,
+        alias="Patrol and Event Map",
+        description="Create a combined map of patrol tracks and events.",
     )
     download_attachments: Optional[DownloadAttachments] = Field(
         None, title="Download Attachments"

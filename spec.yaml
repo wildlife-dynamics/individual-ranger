@@ -21,6 +21,10 @@ requirements:
     version: "0.0.11.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
+  - name: ecoscope-workflows-ext-apn
+    version: "0.0.28.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
 rjsf-overrides:
   properties:
     Spatial Features.properties.spatial_features.properties.source.default:
@@ -33,6 +37,10 @@ rjsf-overrides:
     Event Summary Table.properties.event_summary_html_table.properties.table_config.properties.enable_filtering.default: true
     Event Summary Table.properties.event_summary_html_table.properties.table_config.properties.enable_download.default: true
     Event Summary Table.properties.event_summary_html_table.properties.table_config.properties.hide_header.default: false
+    Patrol and Event Map.properties.patrol_legend_title.properties.var.default: Tipo de patrulla
+    Patrol and Event Map.properties.patrol_legend_title.properties.var.ecoscope:advanced: false
+    Patrol and Event Map.properties.event_legend_title.properties.var.default: Tipo de eventos
+    Patrol and Event Map.properties.event_legend_title.properties.var.ecoscope:advanced: false
   $defs:
     EarthRangerSource:
       title: EarthRanger
@@ -80,7 +88,7 @@ workflow:
     task: set_er_connection
 
   - id: user_details
-    task: get_user_me
+    task: ecoscope_workflows_ext_icf.tasks.get_user_me
     partial:
       client: ${{ workflow.er_client_name.return }}
 
@@ -453,9 +461,9 @@ workflow:
           title: "Event Summary"
           data: ${{ workflow.persist_event_html.return }}
 
-  - title: Patrol Maps
+  - title: Patrol and Event Map
     type: task-group
-    description: "Create maps for patrol trajectories and events."
+    description: "Create a combined map of patrol tracks and events."
     tasks:
       # --- Patrol Tracks ---
       - name: Apply Color to Patrols
@@ -474,6 +482,9 @@ workflow:
           geodataframe: ${{ workflow.patrol_colormap.return }}
           crs: "EPSG:4326"
 
+      - id: patrol_legend_title
+        task: set_string_var
+
       - name: Create Patrol Tracks Layer
         id: patrol_tracks_layer
         task: create_path_layer
@@ -485,80 +496,10 @@ workflow:
             width_units: pixels
             cap_rounded: true
           legend:
+            title: ${{ workflow.patrol_legend_title.return }}
             label_column: extra__patrol_type__display
             color_column: patrol_color
           data_url: null
-
-      - id: patrol_map_view_state
-        task: ecoscope_workflows_ext_custom.tasks.results.view_state_from_layers
-        skipif:
-          conditions:
-            - never
-        partial:
-          layers:
-            - ${{ workflow.patrol_tracks_layer.return }}
-          max_zoom: 17
-
-      # Collect all layers for this map using filter_skip_sentinels.
-      # Each layer is wrapped in a nested list (- - ...) because filter_skip_sentinels
-      # only processes items that are already lists — a bare LayerDefinition would be
-      # silently dropped. The nested list also means a SkipSentinel inside it is correctly
-      # filtered out, so optional spatial layers are excluded when not configured.
-      #
-      # combine_map_layers was not used here because it imports LayerDefinition from
-      # ext_ecoscope, while create_path_layer and draw_map both use ext_custom's
-      # LayerDefinition (which adds layer_type and data_url fields). Pydantic rejects
-      # the ext_custom instance when the function expects the ext_ecoscope class.
-      - name: Collect Patrol Map Layers
-        id: patrol_map_layers
-        task: ecoscope_workflows_ext_icf.tasks.filter_skip_sentinels
-        skipif:
-          conditions:
-            - never
-        partial:
-          iterables:
-            - - ${{ workflow.spatial_features_layer.return }}
-            - - ${{ workflow.patrol_tracks_layer.return }}
-
-      - name: Draw Patrol Tracks Map
-        id: patrol_tracks_map
-        task: draw_map
-        partial:
-          geo_layers: ${{ workflow.patrol_map_layers.return }}
-          tile_layers: ${{ workflow.base_maps.return }}
-          static: false
-          title: null
-          max_zoom: 17
-          view_state: ${{ workflow.patrol_map_view_state.return }}
-          legend_style:
-            placement: bottom-right
-
-      - name: Persist Patrol Tracks Map
-        id: persist_patrol_map
-        task: persist_text
-        partial:
-          text: ${{ workflow.patrol_tracks_map.return }}
-          root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-          filename_suffix: null
-
-      - name: Convert Patrol Tracks Map to PNG
-        id: patrol_map_to_png
-        task: html_to_png
-        partial:
-          html_path: ${{ workflow.persist_patrol_map.return }}
-          output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-          config:
-            full_page: false
-
-      - name: Create Patrol Tracks Map Widget
-        id: patrol_tracks_map_widget
-        task: create_map_widget_single_view
-        skipif:
-          conditions:
-            - never
-        partial:
-          title: "Patrol Tracks Map"
-          data: ${{ workflow.persist_patrol_map.return }}
 
       # --- Event Scatterplot ---
       - name: Apply Color to Events
@@ -577,6 +518,9 @@ workflow:
           geodataframe: ${{ workflow.event_colormap.return }}
           crs: "EPSG:4326"
 
+      - id: event_legend_title
+        task: set_string_var
+
       - name: Create Event Layer
         id: event_layer
         task: create_scatterplot_layer
@@ -587,23 +531,24 @@ workflow:
             get_radius: 5
             radius_units: pixels
           legend:
+            title: ${{ workflow.event_legend_title.return }}
             label_column: event_type_display
             color_column: event_color
           data_url: null
 
-      - id: event_map_view_state
+      # --- Combined Map ---
+      - id: patrol_event_view_state
         task: ecoscope_workflows_ext_custom.tasks.results.view_state_from_layers
         skipif:
           conditions:
             - never
         partial:
           layers:
+            - ${{ workflow.patrol_tracks_layer.return }}
             - ${{ workflow.event_layer.return }}
           max_zoom: 17
 
-      # Same pattern as patrol_map_layers — see comment above.
-      - name: Collect Event Map Layers
-        id: event_map_layers
+      - id: patrol_event_map_layers
         task: ecoscope_workflows_ext_icf.tasks.filter_skip_sentinels
         skipif:
           conditions:
@@ -611,51 +556,57 @@ workflow:
         partial:
           iterables:
             - - ${{ workflow.spatial_features_layer.return }}
+            - - ${{ workflow.patrol_tracks_layer.return }}
             - - ${{ workflow.event_layer.return }}
 
-      - name: Draw Event Scatterplot Map
-        id: event_scatterplot_map
+      - name: Draw Patrol and Event Map
+        id: patrol_event_map
         task: draw_map
         partial:
-          geo_layers: ${{ workflow.event_map_layers.return }}
+          geo_layers: ${{ workflow.patrol_event_map_layers.return }}
           tile_layers: ${{ workflow.base_maps.return }}
           static: false
           title: null
           max_zoom: 17
-          view_state: ${{ workflow.event_map_view_state.return }}
+          view_state: ${{ workflow.patrol_event_view_state.return }}
           legend_style:
             placement: bottom-right
 
-      - name: Persist Event Scatterplot Map
-        id: persist_event_map
+      - id: patrol_event_map_fullscreen
+        task: ecoscope_workflows_ext_apn.tasks.add_fullscreen_to_map
+        partial:
+          html: ${{ workflow.patrol_event_map.return }}
+
+      - name: Persist Patrol and Event Map
+        id: persist_patrol_event_map
         task: persist_text
         partial:
-          text: ${{ workflow.event_scatterplot_map.return }}
+          text: ${{ workflow.patrol_event_map_fullscreen.return }}
           root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
           filename_suffix: null
 
-      - name: Convert Event Scatterplot Map to PNG
-        id: event_map_to_png
+      - name: Convert Map to PNG
+        id: patrol_event_map_to_png
         task: html_to_png
         partial:
-          html_path: ${{ workflow.persist_event_map.return }}
+          html_path: ${{ workflow.persist_patrol_event_map.return }}
           output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
           config:
             full_page: false
 
-      - name: Create Event Scatterplot Map Widget
-        id: event_scatterplot_map_widget
+      - name: Create Map Widget
+        id: patrol_event_map_widget
         task: create_map_widget_single_view
         skipif:
           conditions:
             - never
         partial:
-          title: "Event Scatterplot Map"
-          data: ${{ workflow.persist_event_map.return }}
+          title: "Patrol and Event Map"
+          data: ${{ workflow.persist_patrol_event_map.return }}
 
   # Events Notes & Attachments
   - id: event_notes
-    task: get_eventnotes
+    task: ecoscope_workflows_ext_icf.tasks.get_eventnotes
     partial:
       event: ${{ workflow.format_event_coords.return }}
       client: ${{ workflow.er_client_name.return }}
@@ -727,15 +678,15 @@ workflow:
         total_events: ${{ workflow.total_events.return }}
       patrol_summary: ${{ workflow.formatted_patrol_table.return }}
       event_summary: ${{ workflow.formatted_event_table.return }}
-      patrol_map_path: ${{ workflow.patrol_map_to_png.return }}
-      event_map_path: ${{ workflow.event_map_to_png.return }}
+      patrol_map_path: ${{ workflow.patrol_event_map_to_png.return }}
+      event_map_path: ${{ workflow.patrol_event_map_to_png.return }}
       events: ${{ workflow.format_event_coords.return }}
       notes: ${{ workflow.safe_notes.return}}
       attachments: ${{ workflow.download_attachments.return }}
 
   - name: Dashboard
     id: template_dashboard
-    task: gather_dashboard
+    task: ecoscope_workflows_ext_apn.tasks.gather_apn_dashboard
     partial:
       details: ${{ workflow.workflow_details.return}}
       widgets:
@@ -745,6 +696,5 @@ workflow:
         - ${{ workflow.total_events_sv.return }}
         - ${{ workflow.patrol_summary_table_widget.return }}
         - ${{ workflow.event_summary_table_widget.return }}
-        - ${{ workflow.patrol_tracks_map_widget.return }}
-        - ${{ workflow.event_scatterplot_map_widget.return }}
+        - ${{ workflow.patrol_event_map_widget.return }}
       time_range: ${{ workflow.time_range.return}}

@@ -39,6 +39,10 @@ channel = "https://conda.anaconda.org/conda-forge/"
 version = "0.0.11.*"
 channel = "https://repo.prefix.dev/ecoscope-workflows-custom/"
 
+[dependencies.ecoscope-workflows-ext-apn]
+version = "0.0.28.*"
+channel = "https://repo.prefix.dev/ecoscope-workflows-custom/"
+
 [feature.runner.dependencies.ecoscope-workflows-runner]
 version = "0.22.18.*"
 channel = "https://repo.prefix.dev/ecoscope-workflows/"

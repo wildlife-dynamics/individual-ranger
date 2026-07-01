@@ -531,6 +531,45 @@
         }
       }
     },
+    "Patrol and Event Map": {
+      "type": "object",
+      "description": "Create a combined map of patrol tracks and events.",
+      "ecoscope:task_group": true,
+      "properties": {
+        "patrol_legend_title": {
+          "additionalProperties": false,
+          "properties": {
+            "var": {
+              "title": "",
+              "type": "string",
+              "default": "Tipo de patrulla",
+              "ecoscope:advanced": false
+            }
+          },
+          "required": [
+            "var"
+          ],
+          "type": "object",
+          "title": ""
+        },
+        "event_legend_title": {
+          "additionalProperties": false,
+          "properties": {
+            "var": {
+              "title": "",
+              "type": "string",
+              "default": "Tipo de eventos",
+              "ecoscope:advanced": false
+            }
+          },
+          "required": [
+            "var"
+          ],
+          "type": "object",
+          "title": ""
+        }
+      }
+    },
     "download_attachments": {
       "additionalProperties": false,
       "properties": {
@@ -974,6 +1013,12 @@
         ]
       }
     },
+    "Patrol and Event Map": {
+      "ui:order": [
+        "patrol_legend_title",
+        "event_legend_title"
+      ]
+    },
     "download_attachments": {
       "ui:order": [
         "attachments_subdir",
@@ -992,6 +1037,7 @@
       "",
       "Patrol Summary Table",
       "Event Summary Table",
+      "Patrol and Event Map",
       "download_attachments",
       "generate_report"
     ]

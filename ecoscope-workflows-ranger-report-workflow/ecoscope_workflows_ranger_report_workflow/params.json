@@ -466,6 +466,34 @@
       "type": "object",
       "title": ""
     },
+    "patrol_legend_title": {
+      "additionalProperties": false,
+      "properties": {
+        "var": {
+          "title": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "var"
+      ],
+      "type": "object",
+      "title": ""
+    },
+    "event_legend_title": {
+      "additionalProperties": false,
+      "properties": {
+        "var": {
+          "title": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "var"
+      ],
+      "type": "object",
+      "title": ""
+    },
     "download_attachments": {
       "additionalProperties": false,
       "properties": {
@@ -885,6 +913,8 @@
       "patrol_trajectory",
       "patrol_summary_html_table",
       "event_summary_html_table",
+      "patrol_legend_title",
+      "event_legend_title",
       "download_attachments",
       "generate_report"
     ]

@@ -225,6 +225,20 @@ class PatrolAndEventsParams(BaseModel):
     )
 
 
+class PatrolLegendTitle(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    var: str = Field(..., title="")
+
+
+class EventLegendTitle(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    var: str = Field(..., title="")
+
+
 class DownloadAttachments(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -504,6 +518,8 @@ class Params(BaseModel):
     )
     patrol_summary_html_table: Optional[PatrolSummaryHtmlTable] = Field(None, title="")
     event_summary_html_table: Optional[EventSummaryHtmlTable] = Field(None, title="")
+    patrol_legend_title: Optional[PatrolLegendTitle] = Field(None, title="")
+    event_legend_title: Optional[EventLegendTitle] = Field(None, title="")
     download_attachments: Optional[DownloadAttachments] = Field(
         None, title="Download Attachments"
     )
