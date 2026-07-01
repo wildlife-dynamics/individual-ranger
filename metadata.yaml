@@ -1,21 +1,14 @@
-name:  # Title Case, e.g. "My Ecoscope Workflow Template"
+name: "ICF Individual Ranger Report"
 
-# at least one author is required
 author:
-  - name: ""
-    organization: ""
-    email: ""
+  - name: "Wildlife Dynamics"
+    organization: "Wildlife Dynamics"
+    email: "info@wildlifedynamics.com"
 
-description: # A short description
+description: "Generates an individual ranger patrol report for ICF, including patrol statistics, maps, event summaries, and a Word document report."
 
-# todo: add example
-theory: "" # optional
+theory: ""
 
-# todo: add example
-output_comment: "" # optional
+output_comment: ""
 
-# optional
-# example
-# citation: 
-#   - Wu, Y. et al. (2025). "Monitoring elephant spatial patterns with Ecoscope workflows."
-citation: [] 
+citation: []

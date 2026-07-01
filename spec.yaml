@@ -1,12 +1,750 @@
-id:  # Unique workflow identifier (kebab-case)
-requirements: # Package dependencies with channels
+id: ranger_report
+
+requirements:
   - name: ecoscope-workflows-core
-    version: "0.18.0"
+    version: "0.22.18.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
-# List of tasks in execution order
+  - name: ecoscope-workflows-ext-ecoscope
+    version: "0.22.18.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows/
+
+  - name: ecoscope-workflows-ext-custom
+    version: "0.0.57.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+  - name: pydeck
+    version: "==0.9.2"
+    channel: https://conda.anaconda.org/conda-forge/
+
+  - name: ecoscope-workflows-ext-icf
+    version: "0.0.11.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+rjsf-overrides:
+  properties:
+    Spatial Features.properties.spatial_features.properties.source.default:
+      query: null
+    Patrol Summary Table.properties.patrol_summary_html_table.properties.table_config.properties.enable_sorting.default: true
+    Patrol Summary Table.properties.patrol_summary_html_table.properties.table_config.properties.enable_filtering.default: true
+    Patrol Summary Table.properties.patrol_summary_html_table.properties.table_config.properties.enable_download.default: true
+    Patrol Summary Table.properties.patrol_summary_html_table.properties.table_config.properties.hide_header.default: false
+    Event Summary Table.properties.event_summary_html_table.properties.table_config.properties.enable_sorting.default: true
+    Event Summary Table.properties.event_summary_html_table.properties.table_config.properties.enable_filtering.default: true
+    Event Summary Table.properties.event_summary_html_table.properties.table_config.properties.enable_download.default: true
+    Event Summary Table.properties.event_summary_html_table.properties.table_config.properties.hide_header.default: false
+  $defs:
+    EarthRangerSource:
+      title: EarthRanger
+      type: object
+      properties:
+        query:
+          title: Query
+          default: null
+          anyOf:
+            - type: "null"
+              title: "--- select ---"
+            - $ref: "#/$defs/FeatureSetQuery"
+            - $ref: "#/$defs/FeatureTypeQuery"
+            - $ref: "#/$defs/FeatureIdQuery"
+  uiSchema:
+    Spatial Features.spatial_features.source:
+      ui:options:
+        label: false
+    Spatial Features.spatial_features.source.query:
+      ui:options:
+        label: false
+    Spatial Features.spatial_features.source.query.anyOf:
+      - ui:options:
+          label: false
+      - ui:options:
+          label: false
+      - ui:options:
+          label: false
+    Spatial Features.spatial_features.legend_title:
+      ui:placeholder: "e.g. Park Boundary"
+
+task-instance-defaults:
+  skipif:
+    conditions:
+      - any_is_empty_df
+      - any_dependency_skipped
+
 workflow:
-  - name:  # Display name used for the configuration form UI
-    description:  # Description used for the configuration form
-    id:  # Unique task identifier (snake_case)
-    task:  # Function name from task library
+  - name: Workflow Details
+    id: workflow_details
+    task: set_workflow_details
+
+  - name: Data Source
+    id: er_client_name
+    task: set_er_connection
+
+  - id: user_details
+    task: get_user_me
+    partial:
+      client: ${{ workflow.er_client_name.return }}
+
+  - name: Time Range
+    id: time_range
+    task: set_time_range
+    partial:
+      time_format: "%d %b %Y %H:%M:%S"
+
+  - id: get_timezone
+    task: get_timezone_from_time_range
+    partial:
+      time_range: ${{ workflow.time_range.return }}
+
+  - name: Define Base Maps
+    id: base_maps
+    task: set_base_maps_pydeck
+
+  - title: Spatial Features
+    type: task-group
+    description: "Fetch spatial features from EarthRanger and render them as a map layer."
+    tasks:
+      - id: spatial_features
+        task: ecoscope_workflows_ext_custom.tasks.io.get_spatial_features
+        skipif:
+          conditions:
+            - never
+        partial:
+          client: ${{ workflow.er_client_name.return }}
+
+      - id: spatial_features_layer
+        task: ecoscope_workflows_ext_custom.tasks.results.create_spatial_features_layer
+        partial:
+          geodataframe: ${{ workflow.spatial_features.return }}
+
+  - name: Ranger Name
+    id: ranger_name
+    task: set_ranger_name
+
+  - name: Set Locale
+    id: locale
+    task: set_locale
+    partial:
+      locale_str: es_ES.UTF-8
+
+  - name: Set Template Path
+    id: template_path
+    task: get_template_path
+
+  - title: Patrol and Event Types
+    type: task-group
+    description: ""
+    tasks:
+      - id: patrol_and_events_params
+        task: set_patrols_and_patrol_events_params
+        partial:
+          client: ${{ workflow.er_client_name.return }}
+          time_range: ${{ workflow.time_range.return }}
+          patrol_types: []
+          event_types: []
+          sub_page_size: 100
+          raise_on_empty: false
+          include_patrol_details: true
+          truncate_to_time_range: true
+          include_null_geometry: false
+
+      - id: prefetch_patrols
+        task: get_patrols_from_combined_params
+        partial:
+          combined_params: ${{ workflow.patrol_and_events_params.return }}
+
+      - id: ranger_filter
+        task: filter_patrols_by_ranger_name
+        partial:
+          df: ${{ workflow.prefetch_patrols.return }}
+          name: ${{ workflow.ranger_name.return }}
+
+      - id: patrol_observations
+        task: get_patrol_observations_from_patrols_df_and_combined_params
+        partial:
+          patrols_df: ${{ workflow.ranger_filter.return }}
+          combined_params: ${{ workflow.patrol_and_events_params.return }}
+
+      - id: convert_patrols_to_user_timezone
+        task: convert_values_to_timezone
+        partial:
+          df: ${{ workflow.patrol_observations.return }}
+          timezone: ${{ workflow.get_timezone.return }}
+          columns:
+            - patrol_start_time
+            - patrol_end_time
+            - fixtime
+
+      - id: patrol_events
+        task: unpack_events_from_patrols_df_and_combined_params
+        partial:
+          patrols_df: ${{ workflow.ranger_filter.return }}
+          combined_params: ${{ workflow.patrol_and_events_params.return }}
+
+      - id: convert_events_to_user_tz
+        task: convert_values_to_timezone
+        partial:
+          df: ${{ workflow.patrol_events.return }}
+          timezone: ${{ workflow.get_timezone.return }}
+          columns:
+            - time
+
+  - title: ""
+    type: task-group
+    description: ""
+    tasks:
+      - name: Transform Observations to Relocations
+        id: patrol_relocations
+        task: process_relocations
+        partial:
+          observations: ${{ workflow.convert_patrols_to_user_timezone.return }}
+          relocs_columns:
+            - patrol_id
+            - patrol_start_time
+            - patrol_end_time
+            - patrol_type__display
+            - patrol_serial_number
+            - groupby_col
+            - fixtime
+            - junk_status
+            - geometry
+
+          filter_point_coords:
+            - x: 180.000000
+              y: 90.000000
+            - x: 0.000000
+              y: 0.000000
+            - x: 1.000000
+              y: 1.000000
+
+      - name: Patrol Trajectory
+        id: patrol_trajectory
+        task: relocations_to_trajectory
+        partial:
+          relocations: ${{ workflow.patrol_relocations.return }}
+
+  - title: Patrol Summary Statistics
+    type: task-group
+    description: "Create single value widgets for various patrol statistics."
+    tasks:
+      # Widget: Número Total
+      - name: Calculate total Patrols
+        id: total_patrols
+        task: dataframe_column_nunique
+        partial:
+          df: ${{ workflow.patrol_trajectory.return }}
+          column_name: extra__patrol_id
+
+      - name: Create Single Value Widget for total Patrols
+        id: total_patrols_sv
+        task: create_single_value_widget_single_view
+        skipif:
+          conditions:
+            - never
+        partial:
+          title: "Número Total"
+          decimal_places: 0
+          data: ${{ workflow.total_patrols.return }}
+
+      # Widget: Distancia Total
+      - name: Calculate Total Distance
+        id: total_distance
+        task: dataframe_column_sum
+        partial:
+          df: ${{ workflow.patrol_trajectory.return }}
+          column_name: dist_meters
+
+      - name: Convert total distance units
+        id: total_distance_km
+        task: with_unit
+        partial:
+          original_unit: m
+          new_unit: km
+          value: ${{ workflow.total_distance.return }}
+
+      - name: Create Single Value Widget for Total Distance
+        id: total_distance_sv
+        task: create_single_value_widget_single_view
+        skipif:
+          conditions:
+            - never
+        partial:
+          title: "Distancia Total"
+          decimal_places: 2
+          data: ${{ workflow.total_distance_km.return }}
+
+      # Widget: Horas Totales
+      - name: Calculate Total Patrol Time
+        id: total_patrol_time
+        task: dataframe_column_sum
+        partial:
+          column_name: timespan_seconds
+          df: ${{ workflow.patrol_trajectory.return }}
+
+      - name: Convert total patrol time units
+        id: total_patrol_time_hours
+        task: with_unit
+        partial:
+          original_unit: s
+          new_unit: h
+          value: ${{ workflow.total_patrol_time.return }}
+
+      - name: Create Single Value Widgets for Total Patrol Time
+        id: total_patrol_time_sv
+        task: create_single_value_widget_single_view
+        skipif:
+          conditions:
+            - never
+        partial:
+          title: "Horas Totales"
+          decimal_places: 1
+          data: ${{ workflow.total_patrol_time_hours.return }}
+
+      # Widget: Eventos Registrado
+      - name: Calculate Total Events
+        id: total_events
+        task: dataframe_count
+        partial:
+          df: ${{ workflow.convert_events_to_user_tz.return }}
+
+      - name: Create Single Value Widget for Total Events
+        id: total_events_sv
+        task: create_single_value_widget_single_view
+        skipif:
+          conditions:
+            - never
+        partial:
+          title: "Eventos Registrado"
+          decimal_places: 0
+          data: ${{ workflow.total_events.return }}
+
+  - title: Patrol Summary Table
+    type: task-group
+    description: "Prepare the patrol data table for the report."
+    tasks:
+      - name: Summarize Patrols
+        id: patrol_summary_table
+        task: summarize_df
+        partial:
+          df: ${{ workflow.patrol_trajectory.return }}
+          groupby_cols:
+            - extra__patrol_serial_number
+            - extra__patrol_type__display
+          reset_index: true
+          summary_params:
+            - display_name: "Inicio"
+              aggregator: min
+              column: segment_start
+              decimal_places: null
+            - display_name: "Fin"
+              aggregator: max
+              column: segment_end
+              decimal_places: null
+            - display_name: "Distancia (km)"
+              aggregator: sum
+              column: dist_meters
+              original_unit: m
+              new_unit: km
+              decimal_places: 2
+            - display_name: "Tiempo (hr)"
+              aggregator: sum
+              column: timespan_seconds
+              original_unit: s
+              new_unit: h
+              decimal_places: 2
+
+      - name: Format Patrol Table
+        id: formatted_patrol_table
+        task: map_columns
+        partial:
+          df: ${{ workflow.patrol_summary_table.return }}
+          drop_columns: null
+          raise_if_not_found: True
+          retain_columns:
+            - extra__patrol_serial_number
+            - Inicio
+            - Fin
+            - extra__patrol_type__display
+            - Distancia (km)
+            - Tiempo (hr)
+          rename_columns:
+            extra__patrol_serial_number: "ID de la Patrulla"
+            extra__patrol_type__display: "Tipo de Patrulla"
+
+      - id: patrol_summary_html_table
+        task: draw_table
+        partial:
+          dataframe: ${{ workflow.formatted_patrol_table.return }}
+          widget_id: "patrol_summary_table_widget"
+
+      - name: Persist Patrol Summary HTML Table
+        id: persist_patrol_html
+        task: persist_text
+        partial:
+          text: ${{ workflow.patrol_summary_html_table.return }}
+          root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+          filename_suffix: "patrol_summary_table"
+
+      - name: Create Patrol Summary Table Widget
+        id: patrol_summary_table_widget
+        task: create_plot_widget_single_view
+        skipif:
+          conditions:
+            - never
+        partial:
+          title: "Patrol Summary"
+          data: ${{ workflow.persist_patrol_html.return }}
+
+  - title: Event Summary Table
+    type: task-group
+    description: "Prepare the event data table for the report."
+    tasks:
+      - id: event_type_display_names
+        task: get_event_type_display_names_from_events
+        partial:
+          client: ${{ workflow.er_client_name.return }}
+          events_gdf: ${{ workflow.convert_events_to_user_tz.return }}
+          append_category_names: never
+
+      - name: Format Event Coordinates
+        id: format_event_coords
+        task: format_coordinate
+        partial:
+          events: ${{ workflow.event_type_display_names.return }}
+
+      - name: Format Event Table
+        id: formatted_event_table
+        task: map_columns
+        partial:
+          df: ${{ workflow.format_event_coords.return }}
+          drop_columns: null
+          raise_if_not_found: True
+          retain_columns:
+            - serial_number
+            - event_type_display
+            - coordinates
+            - time
+          rename_columns:
+            serial_number: "ID del Evento"
+            event_type_display: "Tipo de Evento"
+            coordinates: "Coordenadas"
+            time: "Fecha"
+
+      - id: event_summary_html_table
+        task: draw_table
+        partial:
+          dataframe: ${{ workflow.formatted_event_table.return }}
+          widget_id: "event_summary_table_widget"
+
+      - name: Persist Event Summary HTML Table
+        id: persist_event_html
+        task: persist_text
+        partial:
+          text: ${{ workflow.event_summary_html_table.return }}
+          root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+          filename_suffix: "event_summary_table"
+
+      - name: Create Event Summary Table Widget
+        id: event_summary_table_widget
+        task: create_plot_widget_single_view
+        skipif:
+          conditions:
+            - never
+        partial:
+          title: "Event Summary"
+          data: ${{ workflow.persist_event_html.return }}
+
+  - title: Patrol Maps
+    type: task-group
+    description: "Create maps for patrol trajectories and events."
+    tasks:
+      # --- Patrol Tracks ---
+      - name: Apply Color to Patrols
+        id: patrol_colormap
+        task: apply_color_map
+        partial:
+          df: ${{ workflow.patrol_trajectory.return }}
+          input_column_name: extra__patrol_type__display
+          output_column_name: patrol_color
+          colormap: Paired
+
+      - name: Reproject Patrols to WGS84
+        id: patrol_colormap_wgs84
+        task: to_crs
+        partial:
+          geodataframe: ${{ workflow.patrol_colormap.return }}
+          crs: "EPSG:4326"
+
+      - name: Create Patrol Tracks Layer
+        id: patrol_tracks_layer
+        task: create_path_layer
+        partial:
+          geodataframe: ${{ workflow.patrol_colormap_wgs84.return }}
+          layer_style:
+            get_color: patrol_color
+            get_width: 3
+            width_units: pixels
+            cap_rounded: true
+          legend:
+            label_column: extra__patrol_type__display
+            color_column: patrol_color
+          data_url: null
+
+      - id: patrol_map_view_state
+        task: ecoscope_workflows_ext_custom.tasks.results.view_state_from_layers
+        skipif:
+          conditions:
+            - never
+        partial:
+          layers:
+            - ${{ workflow.patrol_tracks_layer.return }}
+          max_zoom: 17
+
+      # Collect all layers for this map using filter_skip_sentinels.
+      # Each layer is wrapped in a nested list (- - ...) because filter_skip_sentinels
+      # only processes items that are already lists — a bare LayerDefinition would be
+      # silently dropped. The nested list also means a SkipSentinel inside it is correctly
+      # filtered out, so optional spatial layers are excluded when not configured.
+      #
+      # combine_map_layers was not used here because it imports LayerDefinition from
+      # ext_ecoscope, while create_path_layer and draw_map both use ext_custom's
+      # LayerDefinition (which adds layer_type and data_url fields). Pydantic rejects
+      # the ext_custom instance when the function expects the ext_ecoscope class.
+      - name: Collect Patrol Map Layers
+        id: patrol_map_layers
+        task: ecoscope_workflows_ext_icf.tasks.filter_skip_sentinels
+        skipif:
+          conditions:
+            - never
+        partial:
+          iterables:
+            - - ${{ workflow.spatial_features_layer.return }}
+            - - ${{ workflow.patrol_tracks_layer.return }}
+
+      - name: Draw Patrol Tracks Map
+        id: patrol_tracks_map
+        task: draw_map
+        partial:
+          geo_layers: ${{ workflow.patrol_map_layers.return }}
+          tile_layers: ${{ workflow.base_maps.return }}
+          static: false
+          title: null
+          max_zoom: 17
+          view_state: ${{ workflow.patrol_map_view_state.return }}
+          legend_style:
+            placement: bottom-right
+
+      - name: Persist Patrol Tracks Map
+        id: persist_patrol_map
+        task: persist_text
+        partial:
+          text: ${{ workflow.patrol_tracks_map.return }}
+          root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+          filename_suffix: null
+
+      - name: Convert Patrol Tracks Map to PNG
+        id: patrol_map_to_png
+        task: html_to_png
+        partial:
+          html_path: ${{ workflow.persist_patrol_map.return }}
+          output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+          config:
+            full_page: false
+
+      - name: Create Patrol Tracks Map Widget
+        id: patrol_tracks_map_widget
+        task: create_map_widget_single_view
+        skipif:
+          conditions:
+            - never
+        partial:
+          title: "Patrol Tracks Map"
+          data: ${{ workflow.persist_patrol_map.return }}
+
+      # --- Event Scatterplot ---
+      - name: Apply Color to Events
+        id: event_colormap
+        task: apply_color_map
+        partial:
+          df: ${{ workflow.event_type_display_names.return }}
+          input_column_name: event_type_display
+          output_column_name: event_color
+          colormap: Accent
+
+      - name: Reproject Events to WGS84
+        id: event_colormap_wgs84
+        task: to_crs
+        partial:
+          geodataframe: ${{ workflow.event_colormap.return }}
+          crs: "EPSG:4326"
+
+      - name: Create Event Layer
+        id: event_layer
+        task: create_scatterplot_layer
+        partial:
+          geodataframe: ${{ workflow.event_colormap_wgs84.return }}
+          layer_style:
+            get_fill_color: event_color
+            get_radius: 5
+            radius_units: pixels
+          legend:
+            label_column: event_type_display
+            color_column: event_color
+          data_url: null
+
+      - id: event_map_view_state
+        task: ecoscope_workflows_ext_custom.tasks.results.view_state_from_layers
+        skipif:
+          conditions:
+            - never
+        partial:
+          layers:
+            - ${{ workflow.event_layer.return }}
+          max_zoom: 17
+
+      # Same pattern as patrol_map_layers — see comment above.
+      - name: Collect Event Map Layers
+        id: event_map_layers
+        task: ecoscope_workflows_ext_icf.tasks.filter_skip_sentinels
+        skipif:
+          conditions:
+            - never
+        partial:
+          iterables:
+            - - ${{ workflow.spatial_features_layer.return }}
+            - - ${{ workflow.event_layer.return }}
+
+      - name: Draw Event Scatterplot Map
+        id: event_scatterplot_map
+        task: draw_map
+        partial:
+          geo_layers: ${{ workflow.event_map_layers.return }}
+          tile_layers: ${{ workflow.base_maps.return }}
+          static: false
+          title: null
+          max_zoom: 17
+          view_state: ${{ workflow.event_map_view_state.return }}
+          legend_style:
+            placement: bottom-right
+
+      - name: Persist Event Scatterplot Map
+        id: persist_event_map
+        task: persist_text
+        partial:
+          text: ${{ workflow.event_scatterplot_map.return }}
+          root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+          filename_suffix: null
+
+      - name: Convert Event Scatterplot Map to PNG
+        id: event_map_to_png
+        task: html_to_png
+        partial:
+          html_path: ${{ workflow.persist_event_map.return }}
+          output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+          config:
+            full_page: false
+
+      - name: Create Event Scatterplot Map Widget
+        id: event_scatterplot_map_widget
+        task: create_map_widget_single_view
+        skipif:
+          conditions:
+            - never
+        partial:
+          title: "Event Scatterplot Map"
+          data: ${{ workflow.persist_event_map.return }}
+
+  # Events Notes & Attachments
+  - id: event_notes
+    task: get_eventnotes
+    partial:
+      event: ${{ workflow.format_event_coords.return }}
+      client: ${{ workflow.er_client_name.return }}
+      use_index_as_id: false
+
+  - id: event_subset
+    task: select_columns
+    partial:
+      df: ${{ workflow.format_event_coords.return }}
+      raise_on_missing: false
+      columns:
+        - id
+        - serial_number
+        - event_type_display
+
+  - id: eventnotes_add_event_serial_no
+    task: merge_two_dataframes
+    partial:
+      left: ${{ workflow.event_notes.return }}
+      right: ${{ workflow.event_subset.return }}
+      on: null
+      how: "left"
+      left_on: event
+      right_on: id
+      left_index: False
+      right_index: False
+      fillna_value: null
+
+  - id: safe_notes
+    task: skip_to_none
+    skipif:
+      conditions:
+        - never
+    partial:
+      df: ${{ workflow.eventnotes_add_event_serial_no.return }}
+
+  - name: Download Attachments
+    id: download_attachments
+    task: download_event_attachments
+    partial:
+      client: ${{ workflow.er_client_name.return }}
+      event_gdf: ${{ workflow.format_event_coords.return }}
+      output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      use_index_as_id: false
+
+  - id: norm_template_path
+    task: remove_file_scheme
+    partial:
+      path: ${{ workflow.template_path.return }}
+
+  - id: norm_output_dir
+    task: remove_file_scheme
+    partial:
+      path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+
+  - name: Generate Ranger Report
+    id: generate_report
+    task: generate_ranger_report
+    partial:
+      user_details: ${{ workflow.user_details.return }}
+      template_path: ${{ workflow.norm_template_path.return }}
+      output_dir: ${{ workflow.norm_output_dir.return }}
+      ranger_name: ${{ workflow.ranger_name.return }}
+      time_range: ${{ workflow.time_range.return }}
+      stats:
+        total_patrols: ${{ workflow.total_patrols.return }}
+        total_distance: ${{ workflow.total_distance_km.return }}
+        total_time: ${{ workflow.total_patrol_time_hours.return }}
+        total_events: ${{ workflow.total_events.return }}
+      patrol_summary: ${{ workflow.formatted_patrol_table.return }}
+      event_summary: ${{ workflow.formatted_event_table.return }}
+      patrol_map_path: ${{ workflow.patrol_map_to_png.return }}
+      event_map_path: ${{ workflow.event_map_to_png.return }}
+      events: ${{ workflow.format_event_coords.return }}
+      notes: ${{ workflow.safe_notes.return}}
+      attachments: ${{ workflow.download_attachments.return }}
+
+  - name: Dashboard
+    id: template_dashboard
+    task: gather_dashboard
+    partial:
+      details: ${{ workflow.workflow_details.return}}
+      widgets:
+        - ${{ workflow.total_patrols_sv.return }}
+        - ${{ workflow.total_distance_sv.return }}
+        - ${{ workflow.total_patrol_time_sv.return }}
+        - ${{ workflow.total_events_sv.return }}
+        - ${{ workflow.patrol_summary_table_widget.return }}
+        - ${{ workflow.event_summary_table_widget.return }}
+        - ${{ workflow.patrol_tracks_map_widget.return }}
+        - ${{ workflow.event_scatterplot_map_widget.return }}
+      time_range: ${{ workflow.time_range.return}}
