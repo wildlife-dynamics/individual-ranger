@@ -47,6 +47,3 @@ all-grouper:
     spatial_features:
       source:
         query: null
-
-    local_spatial_file:
-      layer: ""

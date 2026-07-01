@@ -24,8 +24,15 @@ from ecoscope_workflows_core.tasks.skip import (
     any_dependency_skipped as any_dependency_skipped,
 )
 from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
+from ecoscope_workflows_core.tasks.skip import never as never
 from ecoscope_workflows_core.testing import create_task_magicmock  # 🧪
+from ecoscope_workflows_ext_custom.tasks.io import (
+    get_spatial_features as get_spatial_features,
+)
 from ecoscope_workflows_ext_custom.tasks.localization import set_locale as set_locale
+from ecoscope_workflows_ext_custom.tasks.results import (
+    create_spatial_features_layer as create_spatial_features_layer,
+)
 from ecoscope_workflows_ext_custom.tasks.results import (
     set_base_maps_pydeck as set_base_maps_pydeck,
 )
@@ -64,7 +71,6 @@ from ecoscope_workflows_core.tasks.results import (
 from ecoscope_workflows_core.tasks.results import (
     create_single_value_widget_single_view as create_single_value_widget_single_view,
 )
-from ecoscope_workflows_core.tasks.skip import never as never
 from ecoscope_workflows_core.tasks.transformation import (
     convert_values_to_timezone as convert_values_to_timezone,
 )
@@ -89,21 +95,12 @@ get_event_type_display_names_from_events = create_task_magicmock(  # 🧪
 from ecoscope_workflows_core.tasks.results import (
     create_map_widget_single_view as create_map_widget_single_view,
 )
-from ecoscope_workflows_ext_custom.tasks.io import (
-    get_spatial_features as get_spatial_features,
-)
 from ecoscope_workflows_ext_custom.tasks.io import html_to_png as html_to_png
-from ecoscope_workflows_ext_custom.tasks.io import (
-    load_local_spatial_file as load_local_spatial_file,
-)
 from ecoscope_workflows_ext_custom.tasks.results import (
     create_path_layer as create_path_layer,
 )
 from ecoscope_workflows_ext_custom.tasks.results import (
     create_scatterplot_layer as create_scatterplot_layer,
-)
-from ecoscope_workflows_ext_custom.tasks.results import (
-    create_spatial_features_layer as create_spatial_features_layer,
 )
 from ecoscope_workflows_ext_custom.tasks.results import draw_map as draw_map
 from ecoscope_workflows_ext_custom.tasks.results import (
@@ -153,6 +150,8 @@ def main(params: Params):
         "time_range": [],
         "get_timezone": ["time_range"],
         "base_maps": [],
+        "spatial_features": ["er_client_name"],
+        "spatial_features_layer": ["spatial_features"],
         "ranger_name": [],
         "locale": [],
         "template_path": [],
@@ -186,19 +185,11 @@ def main(params: Params):
         "event_summary_html_table": ["formatted_event_table"],
         "persist_event_html": ["event_summary_html_table"],
         "event_summary_table_widget": ["persist_event_html"],
-        "spatial_features": ["er_client_name"],
-        "spatial_features_layer": ["spatial_features"],
-        "local_spatial_file": [],
-        "local_spatial_features_layer": ["local_spatial_file"],
         "patrol_colormap": ["patrol_trajectory"],
         "patrol_colormap_wgs84": ["patrol_colormap"],
         "patrol_tracks_layer": ["patrol_colormap_wgs84"],
         "patrol_map_view_state": ["patrol_tracks_layer"],
-        "patrol_map_layers": [
-            "spatial_features_layer",
-            "local_spatial_features_layer",
-            "patrol_tracks_layer",
-        ],
+        "patrol_map_layers": ["spatial_features_layer", "patrol_tracks_layer"],
         "patrol_tracks_map": [
             "patrol_map_layers",
             "base_maps",
@@ -211,11 +202,7 @@ def main(params: Params):
         "event_colormap_wgs84": ["event_colormap"],
         "event_layer": ["event_colormap_wgs84"],
         "event_map_view_state": ["event_layer"],
-        "event_map_layers": [
-            "spatial_features_layer",
-            "local_spatial_features_layer",
-            "event_layer",
-        ],
+        "event_map_layers": ["spatial_features_layer", "event_layer"],
         "event_scatterplot_map": [
             "event_map_layers",
             "base_maps",
@@ -367,6 +354,43 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial=(params_dict.get("base_maps") or {}),
+            method="call",
+        ),
+        "spatial_features": Node(
+            async_task=get_spatial_features.validate()
+            .set_task_instance_id("spatial_features")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    never,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "client": DependsOn("er_client_name"),
+            }
+            | (params_dict.get("spatial_features") or {}),
+            method="call",
+        ),
+        "spatial_features_layer": Node(
+            async_task=create_spatial_features_layer.validate()
+            .set_task_instance_id("spatial_features_layer")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "geodataframe": DependsOn("spatial_features"),
+            }
+            | (params_dict.get("spatial_features_layer") or {}),
             method="call",
         ),
         "ranger_name": Node(
@@ -1116,77 +1140,6 @@ def main(params: Params):
             | (params_dict.get("event_summary_table_widget") or {}),
             method="call",
         ),
-        "spatial_features": Node(
-            async_task=get_spatial_features.validate()
-            .set_task_instance_id("spatial_features")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    never,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "client": DependsOn("er_client_name"),
-            }
-            | (params_dict.get("spatial_features") or {}),
-            method="call",
-        ),
-        "spatial_features_layer": Node(
-            async_task=create_spatial_features_layer.validate()
-            .set_task_instance_id("spatial_features_layer")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "geodataframe": DependsOn("spatial_features"),
-            }
-            | (params_dict.get("spatial_features_layer") or {}),
-            method="call",
-        ),
-        "local_spatial_file": Node(
-            async_task=load_local_spatial_file.validate()
-            .set_task_instance_id("local_spatial_file")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    never,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial=(params_dict.get("local_spatial_file") or {}),
-            method="call",
-        ),
-        "local_spatial_features_layer": Node(
-            async_task=create_spatial_features_layer.validate()
-            .set_task_instance_id("local_spatial_features_layer")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "geodataframe": DependsOn("local_spatial_file"),
-            }
-            | (params_dict.get("local_spatial_features_layer") or {}),
-            method="call",
-        ),
         "patrol_colormap": Node(
             async_task=apply_color_map.validate()
             .set_task_instance_id("patrol_colormap")
@@ -1275,6 +1228,7 @@ def main(params: Params):
                 "layers": [
                     DependsOn("patrol_tracks_layer"),
                 ],
+                "max_zoom": 17,
             }
             | (params_dict.get("patrol_map_view_state") or {}),
             method="call",
@@ -1298,12 +1252,6 @@ def main(params: Params):
                     ],
                     DependsOn(
                         "{'asstr': 'spatial_features_layer', 'aslist': ['spatial_features_layer']}"
-                    ),
-                    [
-                        DependsOn("local_spatial_features_layer"),
-                    ],
-                    DependsOn(
-                        "{'asstr': 'local_spatial_features_layer', 'aslist': ['local_spatial_features_layer']}"
                     ),
                     [
                         DependsOn("patrol_tracks_layer"),
@@ -1493,6 +1441,7 @@ def main(params: Params):
                 "layers": [
                     DependsOn("event_layer"),
                 ],
+                "max_zoom": 17,
             }
             | (params_dict.get("event_map_view_state") or {}),
             method="call",
@@ -1516,12 +1465,6 @@ def main(params: Params):
                     ],
                     DependsOn(
                         "{'asstr': 'spatial_features_layer', 'aslist': ['spatial_features_layer']}"
-                    ),
-                    [
-                        DependsOn("local_spatial_features_layer"),
-                    ],
-                    DependsOn(
-                        "{'asstr': 'local_spatial_features_layer', 'aslist': ['local_spatial_features_layer']}"
                     ),
                     [
                         DependsOn("event_layer"),

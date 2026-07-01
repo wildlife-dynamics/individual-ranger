@@ -21,6 +21,49 @@ requirements:
     version: "0.0.11.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
+rjsf-overrides:
+  properties:
+    Spatial Features.properties.spatial_features.properties.source.default:
+      query: null
+    Patrol Summary Table.properties.patrol_summary_html_table.properties.table_config.properties.enable_sorting.default: true
+    Patrol Summary Table.properties.patrol_summary_html_table.properties.table_config.properties.enable_filtering.default: true
+    Patrol Summary Table.properties.patrol_summary_html_table.properties.table_config.properties.enable_download.default: true
+    Patrol Summary Table.properties.patrol_summary_html_table.properties.table_config.properties.hide_header.default: false
+    Event Summary Table.properties.event_summary_html_table.properties.table_config.properties.enable_sorting.default: true
+    Event Summary Table.properties.event_summary_html_table.properties.table_config.properties.enable_filtering.default: true
+    Event Summary Table.properties.event_summary_html_table.properties.table_config.properties.enable_download.default: true
+    Event Summary Table.properties.event_summary_html_table.properties.table_config.properties.hide_header.default: false
+  $defs:
+    EarthRangerSource:
+      title: EarthRanger
+      type: object
+      properties:
+        query:
+          title: Query
+          default: null
+          anyOf:
+            - type: "null"
+              title: "--- select ---"
+            - $ref: "#/$defs/FeatureSetQuery"
+            - $ref: "#/$defs/FeatureTypeQuery"
+            - $ref: "#/$defs/FeatureIdQuery"
+  uiSchema:
+    Spatial Features.spatial_features.source:
+      ui:options:
+        label: false
+    Spatial Features.spatial_features.source.query:
+      ui:options:
+        label: false
+    Spatial Features.spatial_features.source.query.anyOf:
+      - ui:options:
+          label: false
+      - ui:options:
+          label: false
+      - ui:options:
+          label: false
+    Spatial Features.spatial_features.legend_title:
+      ui:placeholder: "e.g. Park Boundary"
+
 task-instance-defaults:
   skipif:
     conditions:
@@ -55,6 +98,23 @@ workflow:
   - name: Define Base Maps
     id: base_maps
     task: set_base_maps_pydeck
+
+  - title: Spatial Features
+    type: task-group
+    description: "Fetch spatial features from EarthRanger and render them as a map layer."
+    tasks:
+      - id: spatial_features
+        task: ecoscope_workflows_ext_custom.tasks.io.get_spatial_features
+        skipif:
+          conditions:
+            - never
+        partial:
+          client: ${{ workflow.er_client_name.return }}
+
+      - id: spatial_features_layer
+        task: ecoscope_workflows_ext_custom.tasks.results.create_spatial_features_layer
+        partial:
+          geodataframe: ${{ workflow.spatial_features.return }}
 
   - name: Ranger Name
     id: ranger_name
@@ -257,9 +317,9 @@ workflow:
           decimal_places: 0
           data: ${{ workflow.total_events.return }}
 
-  - title: Report Tables
+  - title: Patrol Summary Table
     type: task-group
-    description: "Prepare data tables for the report."
+    description: "Prepare the patrol data table for the report."
     tasks:
       - name: Summarize Patrols
         id: patrol_summary_table
@@ -310,8 +370,7 @@ workflow:
             extra__patrol_serial_number: "ID de la Patrulla"
             extra__patrol_type__display: "Tipo de Patrulla"
 
-      - name: Patrol Summary Table
-        id: patrol_summary_html_table
+      - id: patrol_summary_html_table
         task: draw_table
         partial:
           dataframe: ${{ workflow.formatted_patrol_table.return }}
@@ -335,6 +394,10 @@ workflow:
           title: "Patrol Summary"
           data: ${{ workflow.persist_patrol_html.return }}
 
+  - title: Event Summary Table
+    type: task-group
+    description: "Prepare the event data table for the report."
+    tasks:
       - id: event_type_display_names
         task: get_event_type_display_names_from_events
         partial:
@@ -366,8 +429,7 @@ workflow:
             coordinates: "Coordenadas"
             time: "Fecha"
 
-      - name: Event Summary Table
-        id: event_summary_html_table
+      - id: event_summary_html_table
         task: draw_table
         partial:
           dataframe: ${{ workflow.formatted_event_table.return }}
@@ -390,40 +452,6 @@ workflow:
         partial:
           title: "Event Summary"
           data: ${{ workflow.persist_event_html.return }}
-
-  - title: Spatial Features
-    type: task-group
-    description: "Fetch spatial features from EarthRanger and render them as a map layer."
-    tasks:
-      - id: spatial_features
-        task: ecoscope_workflows_ext_custom.tasks.io.get_spatial_features
-        skipif:
-          conditions:
-            - never
-        partial:
-          client: ${{ workflow.er_client_name.return }}
-
-      - id: spatial_features_layer
-        task: ecoscope_workflows_ext_custom.tasks.results.create_spatial_features_layer
-        partial:
-          geodataframe: ${{ workflow.spatial_features.return }}
-
-  - title: Local Spatial Features
-    type: task-group
-    description: "Load spatial features from a local file and render them as a map layer."
-    tasks:
-      - id: local_spatial_file
-        task: ecoscope_workflows_ext_custom.tasks.io.load_local_spatial_file
-        skipif:
-          conditions:
-            - never
-
-      - id: local_spatial_features_layer
-        task: ecoscope_workflows_ext_custom.tasks.results.create_spatial_features_layer
-        partial:
-          geodataframe: ${{ workflow.local_spatial_file.return }}
-
-  # safe_spatial_layers removed — layers collected per-map below
 
   - title: Patrol Maps
     type: task-group
@@ -461,8 +489,7 @@ workflow:
             color_column: patrol_color
           data_url: null
 
-      - name: Patrol Tracks Map View State
-        id: patrol_map_view_state
+      - id: patrol_map_view_state
         task: ecoscope_workflows_ext_custom.tasks.results.view_state_from_layers
         skipif:
           conditions:
@@ -470,6 +497,7 @@ workflow:
         partial:
           layers:
             - ${{ workflow.patrol_tracks_layer.return }}
+          max_zoom: 17
 
       # Collect all layers for this map using filter_skip_sentinels.
       # Each layer is wrapped in a nested list (- - ...) because filter_skip_sentinels
@@ -490,7 +518,6 @@ workflow:
         partial:
           iterables:
             - - ${{ workflow.spatial_features_layer.return }}
-            - - ${{ workflow.local_spatial_features_layer.return }}
             - - ${{ workflow.patrol_tracks_layer.return }}
 
       - name: Draw Patrol Tracks Map
@@ -564,8 +591,7 @@ workflow:
             color_column: event_color
           data_url: null
 
-      - name: Event Scatterplot Map View State
-        id: event_map_view_state
+      - id: event_map_view_state
         task: ecoscope_workflows_ext_custom.tasks.results.view_state_from_layers
         skipif:
           conditions:
@@ -573,6 +599,7 @@ workflow:
         partial:
           layers:
             - ${{ workflow.event_layer.return }}
+          max_zoom: 17
 
       # Same pattern as patrol_map_layers — see comment above.
       - name: Collect Event Map Layers
@@ -584,7 +611,6 @@ workflow:
         partial:
           iterables:
             - - ${{ workflow.spatial_features_layer.return }}
-            - - ${{ workflow.local_spatial_features_layer.return }}
             - - ${{ workflow.event_layer.return }}
 
       - name: Draw Event Scatterplot Map

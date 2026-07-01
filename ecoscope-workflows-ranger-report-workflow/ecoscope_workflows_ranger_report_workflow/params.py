@@ -225,20 +225,6 @@ class PatrolAndEventsParams(BaseModel):
     )
 
 
-class PatrolMapViewState(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    max_zoom: Optional[float] = Field(20, title="Max Zoom")
-
-
-class EventMapViewState(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    max_zoom: Optional[float] = Field(20, title="Max Zoom")
-
-
 class DownloadAttachments(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -275,34 +261,6 @@ class TimezoneInfo(BaseModel):
     tzCode: str = Field(..., title="Tzcode")
     name: str = Field(..., title="Name")
     utc: str = Field(..., title="Utc")
-
-
-class TrajectorySegmentFilter(BaseModel):
-    min_length_meters: Optional[confloat(ge=0.001)] = Field(
-        0.001, title="Minimum Segment Length (Meters)"
-    )
-    max_length_meters: Optional[confloat(gt=0.001)] = Field(
-        100000, title="Maximum Segment Length (Meters)"
-    )
-    min_time_secs: Optional[confloat(ge=1.0)] = Field(
-        1, title="Minimum Segment Duration (Seconds)"
-    )
-    max_time_secs: Optional[confloat(gt=1.0)] = Field(
-        172800, title="Maximum Segment Duration (Seconds)"
-    )
-    min_speed_kmhr: Optional[confloat(gt=0.001)] = Field(
-        0.01, title="Minimum Segment Speed (Kilometers per Hour)"
-    )
-    max_speed_kmhr: Optional[confloat(gt=0.001)] = Field(
-        500, title="Maximum Segment Speed (Kilometers per Hour)"
-    )
-
-
-class TableConfig(BaseModel):
-    enable_sorting: Optional[bool] = Field(True, title="Enable Sorting")
-    enable_filtering: Optional[bool] = Field(False, title="Enable Filtering")
-    enable_download: Optional[bool] = Field(False, title="Enable Download")
-    hide_header: Optional[bool] = Field(False, title="Hide Header")
 
 
 class FeatureSetQuery(BaseModel):
@@ -355,6 +313,34 @@ class PolygonStyle(BaseModel):
     stroke_width: Optional[float] = Field(
         2.0, description="Border width in pixels.", title="Stroke Width"
     )
+
+
+class TrajectorySegmentFilter(BaseModel):
+    min_length_meters: Optional[confloat(ge=0.001)] = Field(
+        0.001, title="Minimum Segment Length (Meters)"
+    )
+    max_length_meters: Optional[confloat(gt=0.001)] = Field(
+        100000, title="Maximum Segment Length (Meters)"
+    )
+    min_time_secs: Optional[confloat(ge=1.0)] = Field(
+        1, title="Minimum Segment Duration (Seconds)"
+    )
+    max_time_secs: Optional[confloat(gt=1.0)] = Field(
+        172800, title="Maximum Segment Duration (Seconds)"
+    )
+    min_speed_kmhr: Optional[confloat(gt=0.001)] = Field(
+        0.01, title="Minimum Segment Speed (Kilometers per Hour)"
+    )
+    max_speed_kmhr: Optional[confloat(gt=0.001)] = Field(
+        500, title="Maximum Segment Speed (Kilometers per Hour)"
+    )
+
+
+class TableConfig(BaseModel):
+    enable_sorting: Optional[bool] = Field(True, title="Enable Sorting")
+    enable_filtering: Optional[bool] = Field(False, title="Enable Filtering")
+    enable_download: Optional[bool] = Field(False, title="Enable Download")
+    hide_header: Optional[bool] = Field(False, title="Hide Header")
 
 
 class ErClientName(BaseModel):
@@ -444,38 +430,6 @@ class LayerStyle(BaseModel):
     )
 
 
-class LocalSpatialFile(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    file_path: Optional[str] = Field(
-        "",
-        description="Path to the geospatial file. Supported formats: GeoJSON (.geojson), GeoPackage (.gpkg), and GeoParquet (.parquet / .geoparquet).",
-        title="File Path",
-    )
-    layer: Optional[str] = Field(
-        None,
-        description="Layer name within a GeoPackage file. Only required when the file contains multiple layers.",
-        title="Layer",
-    )
-    group_by: Optional[str] = Field(
-        "",
-        description="Column used to group features in the map legend e.g. 'name', 'category'.",
-        title="Group By",
-    )
-    legend_title: Optional[str] = Field(
-        "",
-        description="Label shown in the map legend e.g. 'Park Boundary'.",
-        title="Legend Title",
-    )
-    style: Optional[List[LayerStyle]] = Field(
-        None,
-        description="Optional: Customise how features are rendered on the map.",
-        max_length=1,
-        title="Style",
-    )
-
-
 class FeatureIdQuery(BaseModel):
     feature_id: str = Field(
         ...,
@@ -541,26 +495,15 @@ class Params(BaseModel):
         None, description="Choose the period of time to analyze.", title="Time Range"
     )
     base_maps: Optional[BaseMaps] = Field(None, title="Define Base Maps")
+    spatial_features: Optional[SpatialFeatures] = Field(None, title="")
     ranger_name: Optional[RangerName] = Field(None, title="Ranger Name")
     template_path: Optional[TemplatePath] = Field(None, title="Set Template Path")
     patrol_and_events_params: Optional[PatrolAndEventsParams] = Field(None, title="")
     patrol_trajectory: Optional[PatrolTrajectory] = Field(
         None, title="Patrol Trajectory"
     )
-    patrol_summary_html_table: Optional[PatrolSummaryHtmlTable] = Field(
-        None, title="Patrol Summary Table"
-    )
-    event_summary_html_table: Optional[EventSummaryHtmlTable] = Field(
-        None, title="Event Summary Table"
-    )
-    spatial_features: Optional[SpatialFeatures] = Field(None, title="")
-    local_spatial_file: Optional[LocalSpatialFile] = Field(None, title="")
-    patrol_map_view_state: Optional[PatrolMapViewState] = Field(
-        None, title="Patrol Tracks Map View State"
-    )
-    event_map_view_state: Optional[EventMapViewState] = Field(
-        None, title="Event Scatterplot Map View State"
-    )
+    patrol_summary_html_table: Optional[PatrolSummaryHtmlTable] = Field(None, title="")
+    event_summary_html_table: Optional[EventSummaryHtmlTable] = Field(None, title="")
     download_attachments: Optional[DownloadAttachments] = Field(
         None, title="Download Attachments"
     )

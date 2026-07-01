@@ -277,6 +277,47 @@
       "required": [],
       "title": "Define Base Maps"
     },
+    "spatial_features": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/EarthRangerSource"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "group_by": {
+          "default": "type_name",
+          "title": "Group By",
+          "type": "string",
+          "description": "Column used to group features in the map legend e.g. 'Feature Type' shows one legend entry per feature type.",
+          "oneOf": [
+            {
+              "const": "type_name",
+              "title": "Feature Type"
+            },
+            {
+              "const": "title",
+              "title": "Feature Name"
+            }
+          ],
+          "ecoscope:advanced": true
+        },
+        "legend_title": {
+          "default": "",
+          "title": "Legend Title",
+          "type": "string",
+          "description": "Label shown in the map legend e.g. 'Park Boundary'.",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": ""
+    },
     "ranger_name": {
       "additionalProperties": false,
       "properties": {
@@ -394,7 +435,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Patrol Summary Table"
+      "title": ""
     },
     "event_summary_html_table": {
       "additionalProperties": false,
@@ -423,121 +464,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Event Summary Table"
-    },
-    "spatial_features": {
-      "additionalProperties": false,
-      "properties": {
-        "source": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/EarthRangerSource"
-            }
-          ],
-          "default": null,
-          "title": "Source"
-        },
-        "group_by": {
-          "default": "type_name",
-          "title": "Group By",
-          "type": "string",
-          "description": "Column used to group features in the map legend e.g. 'Feature Type' shows one legend entry per feature type.",
-          "oneOf": [
-            {
-              "const": "type_name",
-              "title": "Feature Type"
-            },
-            {
-              "const": "title",
-              "title": "Feature Name"
-            }
-          ],
-          "ecoscope:advanced": true
-        },
-        "legend_title": {
-          "default": "",
-          "title": "Legend Title",
-          "type": "string",
-          "description": "Label shown in the map legend e.g. 'Park Boundary'.",
-          "ecoscope:advanced": true
-        }
-      },
-      "required": [],
-      "type": "object",
       "title": ""
-    },
-    "local_spatial_file": {
-      "additionalProperties": false,
-      "properties": {
-        "file_path": {
-          "default": "",
-          "title": "File Path",
-          "type": "string",
-          "description": "Path to the geospatial file. Supported formats: GeoJSON (.geojson), GeoPackage (.gpkg), and GeoParquet (.parquet / .geoparquet).",
-          "ecoscope:advanced": true
-        },
-        "layer": {
-          "default": null,
-          "title": "Layer",
-          "type": "string",
-          "description": "Layer name within a GeoPackage file. Only required when the file contains multiple layers.",
-          "ecoscope:advanced": true
-        },
-        "group_by": {
-          "default": "",
-          "title": "Group By",
-          "type": "string",
-          "description": "Column used to group features in the map legend e.g. 'name', 'category'.",
-          "ecoscope:advanced": true
-        },
-        "legend_title": {
-          "default": "",
-          "title": "Legend Title",
-          "type": "string",
-          "description": "Label shown in the map legend e.g. 'Park Boundary'.",
-          "ecoscope:advanced": true
-        },
-        "style": {
-          "default": null,
-          "items": {
-            "$ref": "#/$defs/LayerStyle"
-          },
-          "maxLength": 1,
-          "title": "Style",
-          "type": "array",
-          "description": "Optional: Customise how features are rendered on the map.",
-          "ecoscope:advanced": true
-        }
-      },
-      "type": "object",
-      "required": [],
-      "title": ""
-    },
-    "patrol_map_view_state": {
-      "additionalProperties": false,
-      "properties": {
-        "max_zoom": {
-          "default": 20,
-          "title": "Max Zoom",
-          "type": "number"
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Patrol Tracks Map View State"
-    },
-    "event_map_view_state": {
-      "additionalProperties": false,
-      "properties": {
-        "max_zoom": {
-          "default": 20,
-          "title": "Max Zoom",
-          "type": "number"
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Event Scatterplot Map View State"
     },
     "download_attachments": {
       "additionalProperties": false,
@@ -615,80 +542,6 @@
         "utc"
       ],
       "title": "TimezoneInfo",
-      "type": "object"
-    },
-    "TrajectorySegmentFilter": {
-      "properties": {
-        "min_length_meters": {
-          "default": 0.001,
-          "ecoscope:advanced": true,
-          "minimum": 0.001,
-          "title": "Minimum Segment Length (Meters)",
-          "type": "number"
-        },
-        "max_length_meters": {
-          "default": 100000,
-          "ecoscope:advanced": true,
-          "exclusiveMinimum": 0.001,
-          "title": "Maximum Segment Length (Meters)",
-          "type": "number"
-        },
-        "min_time_secs": {
-          "default": 1,
-          "ecoscope:advanced": true,
-          "minimum": 1,
-          "title": "Minimum Segment Duration (Seconds)",
-          "type": "number"
-        },
-        "max_time_secs": {
-          "default": 172800,
-          "ecoscope:advanced": true,
-          "exclusiveMinimum": 1,
-          "title": "Maximum Segment Duration (Seconds)",
-          "type": "number"
-        },
-        "min_speed_kmhr": {
-          "default": 0.01,
-          "ecoscope:advanced": true,
-          "exclusiveMinimum": 0.001,
-          "title": "Minimum Segment Speed (Kilometers per Hour)",
-          "type": "number"
-        },
-        "max_speed_kmhr": {
-          "default": 500,
-          "ecoscope:advanced": true,
-          "exclusiveMinimum": 0.001,
-          "title": "Maximum Segment Speed (Kilometers per Hour)",
-          "type": "number"
-        }
-      },
-      "title": "TrajectorySegmentFilter",
-      "type": "object"
-    },
-    "TableConfig": {
-      "properties": {
-        "enable_sorting": {
-          "default": true,
-          "title": "Enable Sorting",
-          "type": "boolean"
-        },
-        "enable_filtering": {
-          "default": false,
-          "title": "Enable Filtering",
-          "type": "boolean"
-        },
-        "enable_download": {
-          "default": false,
-          "title": "Enable Download",
-          "type": "boolean"
-        },
-        "hide_header": {
-          "default": false,
-          "title": "Hide Header",
-          "type": "boolean"
-        }
-      },
-      "title": "TableConfig",
       "type": "object"
     },
     "EarthRangerSource": {
@@ -899,6 +752,80 @@
       },
       "title": "",
       "type": "object"
+    },
+    "TrajectorySegmentFilter": {
+      "properties": {
+        "min_length_meters": {
+          "default": 0.001,
+          "ecoscope:advanced": true,
+          "minimum": 0.001,
+          "title": "Minimum Segment Length (Meters)",
+          "type": "number"
+        },
+        "max_length_meters": {
+          "default": 100000,
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.001,
+          "title": "Maximum Segment Length (Meters)",
+          "type": "number"
+        },
+        "min_time_secs": {
+          "default": 1,
+          "ecoscope:advanced": true,
+          "minimum": 1,
+          "title": "Minimum Segment Duration (Seconds)",
+          "type": "number"
+        },
+        "max_time_secs": {
+          "default": 172800,
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 1,
+          "title": "Maximum Segment Duration (Seconds)",
+          "type": "number"
+        },
+        "min_speed_kmhr": {
+          "default": 0.01,
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.001,
+          "title": "Minimum Segment Speed (Kilometers per Hour)",
+          "type": "number"
+        },
+        "max_speed_kmhr": {
+          "default": 500,
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.001,
+          "title": "Maximum Segment Speed (Kilometers per Hour)",
+          "type": "number"
+        }
+      },
+      "title": "TrajectorySegmentFilter",
+      "type": "object"
+    },
+    "TableConfig": {
+      "properties": {
+        "enable_sorting": {
+          "default": true,
+          "title": "Enable Sorting",
+          "type": "boolean"
+        },
+        "enable_filtering": {
+          "default": false,
+          "title": "Enable Filtering",
+          "type": "boolean"
+        },
+        "enable_download": {
+          "default": false,
+          "title": "Enable Download",
+          "type": "boolean"
+        },
+        "hide_header": {
+          "default": false,
+          "title": "Hide Header",
+          "type": "boolean"
+        }
+      },
+      "title": "TableConfig",
+      "type": "object"
     }
   },
   "uiSchema": {
@@ -913,6 +840,13 @@
         "since",
         "until",
         "timezone"
+      ]
+    },
+    "spatial_features": {
+      "ui:order": [
+        "source",
+        "group_by",
+        "legend_title"
       ]
     },
     "patrol_and_events_params": {
@@ -933,22 +867,6 @@
         "table_config"
       ]
     },
-    "spatial_features": {
-      "ui:order": [
-        "source",
-        "group_by",
-        "legend_title"
-      ]
-    },
-    "local_spatial_file": {
-      "ui:order": [
-        "file_path",
-        "layer",
-        "group_by",
-        "legend_title",
-        "style"
-      ]
-    },
     "download_attachments": {
       "ui:order": [
         "attachments_subdir",
@@ -960,16 +878,13 @@
       "er_client_name",
       "time_range",
       "base_maps",
+      "spatial_features",
       "ranger_name",
       "template_path",
       "patrol_and_events_params",
       "patrol_trajectory",
       "patrol_summary_html_table",
       "event_summary_html_table",
-      "spatial_features",
-      "local_spatial_file",
-      "patrol_map_view_state",
-      "event_map_view_state",
       "download_attachments",
       "generate_report"
     ]

@@ -229,27 +229,47 @@ class PatrolAndEventTypes(BaseModel):
     patrol_and_events_params: Optional[PatrolAndEventsParams] = Field(None, title="")
 
 
-class PatrolMapViewState(BaseModel):
+class TableConfig(BaseModel):
+    enable_sorting: Optional[bool] = Field(True, title="Enable Sorting")
+    enable_filtering: Optional[bool] = Field(False, title="Enable Filtering")
+    enable_download: Optional[bool] = Field(False, title="Enable Download")
+    hide_header: Optional[bool] = Field(False, title="Hide Header")
+
+
+class PatrolSummaryHtmlTable(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    max_zoom: Optional[float] = Field(20, title="Max Zoom")
+    columns: Optional[List[str]] = Field(
+        None,
+        description="The list of dataframe columns to render in the table. Leave empty to render all columns",
+        title="Columns",
+    )
+    table_config: Optional[TableConfig] = Field(
+        None, description="Configuration options for the table.", title="Table Config"
+    )
 
 
-class EventMapViewState(BaseModel):
+class PatrolSummaryTable(BaseModel):
+    patrol_summary_html_table: Optional[PatrolSummaryHtmlTable] = Field(None, title="")
+
+
+class EventSummaryHtmlTable(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    max_zoom: Optional[float] = Field(20, title="Max Zoom")
+    columns: Optional[List[str]] = Field(
+        None,
+        description="The list of dataframe columns to render in the table. Leave empty to render all columns",
+        title="Columns",
+    )
+    table_config: Optional[TableConfig] = Field(
+        None, description="Configuration options for the table.", title="Table Config"
+    )
 
 
-class PatrolMaps(BaseModel):
-    patrol_map_view_state: Optional[PatrolMapViewState] = Field(
-        None, title="Patrol Tracks Map View State"
-    )
-    event_map_view_state: Optional[EventMapViewState] = Field(
-        None, title="Event Scatterplot Map View State"
-    )
+class EventSummaryTable(BaseModel):
+    event_summary_html_table: Optional[EventSummaryHtmlTable] = Field(None, title="")
 
 
 class DownloadAttachments(BaseModel):
@@ -288,34 +308,6 @@ class TimezoneInfo(BaseModel):
     tzCode: str = Field(..., title="Tzcode")
     name: str = Field(..., title="Name")
     utc: str = Field(..., title="Utc")
-
-
-class TrajectorySegmentFilter(BaseModel):
-    min_length_meters: Optional[confloat(ge=0.001)] = Field(
-        0.001, title="Minimum Segment Length (Meters)"
-    )
-    max_length_meters: Optional[confloat(gt=0.001)] = Field(
-        100000, title="Maximum Segment Length (Meters)"
-    )
-    min_time_secs: Optional[confloat(ge=1.0)] = Field(
-        1, title="Minimum Segment Duration (Seconds)"
-    )
-    max_time_secs: Optional[confloat(gt=1.0)] = Field(
-        172800, title="Maximum Segment Duration (Seconds)"
-    )
-    min_speed_kmhr: Optional[confloat(gt=0.001)] = Field(
-        0.01, title="Minimum Segment Speed (Kilometers per Hour)"
-    )
-    max_speed_kmhr: Optional[confloat(gt=0.001)] = Field(
-        500, title="Maximum Segment Speed (Kilometers per Hour)"
-    )
-
-
-class TableConfig(BaseModel):
-    enable_sorting: Optional[bool] = Field(True, title="Enable Sorting")
-    enable_filtering: Optional[bool] = Field(False, title="Enable Filtering")
-    enable_download: Optional[bool] = Field(False, title="Enable Download")
-    hide_header: Optional[bool] = Field(False, title="Hide Header")
 
 
 class FeatureSetQuery(BaseModel):
@@ -370,6 +362,27 @@ class PolygonStyle(BaseModel):
     )
 
 
+class TrajectorySegmentFilter(BaseModel):
+    min_length_meters: Optional[confloat(ge=0.001)] = Field(
+        0.001, title="Minimum Segment Length (Meters)"
+    )
+    max_length_meters: Optional[confloat(gt=0.001)] = Field(
+        100000, title="Maximum Segment Length (Meters)"
+    )
+    min_time_secs: Optional[confloat(ge=1.0)] = Field(
+        1, title="Minimum Segment Duration (Seconds)"
+    )
+    max_time_secs: Optional[confloat(gt=1.0)] = Field(
+        172800, title="Maximum Segment Duration (Seconds)"
+    )
+    min_speed_kmhr: Optional[confloat(gt=0.001)] = Field(
+        0.01, title="Minimum Segment Speed (Kilometers per Hour)"
+    )
+    max_speed_kmhr: Optional[confloat(gt=0.001)] = Field(
+        500, title="Maximum Segment Speed (Kilometers per Hour)"
+    )
+
+
 class ErClientName(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -414,43 +427,6 @@ class FieldModel(BaseModel):
     )
 
 
-class PatrolSummaryHtmlTable(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    columns: Optional[List[str]] = Field(
-        None,
-        description="The list of dataframe columns to render in the table. Leave empty to render all columns",
-        title="Columns",
-    )
-    table_config: Optional[TableConfig] = Field(
-        None, description="Configuration options for the table.", title="Table Config"
-    )
-
-
-class EventSummaryHtmlTable(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    columns: Optional[List[str]] = Field(
-        None,
-        description="The list of dataframe columns to render in the table. Leave empty to render all columns",
-        title="Columns",
-    )
-    table_config: Optional[TableConfig] = Field(
-        None, description="Configuration options for the table.", title="Table Config"
-    )
-
-
-class ReportTables(BaseModel):
-    patrol_summary_html_table: Optional[PatrolSummaryHtmlTable] = Field(
-        None, title="Patrol Summary Table"
-    )
-    event_summary_html_table: Optional[EventSummaryHtmlTable] = Field(
-        None, title="Event Summary Table"
-    )
-
-
 class LayerStyle(BaseModel):
     polygon: Optional[List[PolygonStyle]] = Field(
         [],
@@ -470,42 +446,6 @@ class LayerStyle(BaseModel):
         max_length=1,
         title="Point",
     )
-
-
-class LocalSpatialFile(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    file_path: Optional[str] = Field(
-        "",
-        description="Path to the geospatial file. Supported formats: GeoJSON (.geojson), GeoPackage (.gpkg), and GeoParquet (.parquet / .geoparquet).",
-        title="File Path",
-    )
-    layer: Optional[str] = Field(
-        None,
-        description="Layer name within a GeoPackage file. Only required when the file contains multiple layers.",
-        title="Layer",
-    )
-    group_by: Optional[str] = Field(
-        "",
-        description="Column used to group features in the map legend e.g. 'name', 'category'.",
-        title="Group By",
-    )
-    legend_title: Optional[str] = Field(
-        "",
-        description="Label shown in the map legend e.g. 'Park Boundary'.",
-        title="Legend Title",
-    )
-    style: Optional[List[LayerStyle]] = Field(
-        None,
-        description="Optional: Customise how features are rendered on the map.",
-        max_length=1,
-        title="Style",
-    )
-
-
-class LocalSpatialFeatures(BaseModel):
-    local_spatial_file: Optional[LocalSpatialFile] = Field(None, title="")
 
 
 class FeatureIdQuery(BaseModel):
@@ -546,7 +486,10 @@ class SpatialFeatures1(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    source: Optional[EarthRangerSource] = Field(None, title="Source")
+    source: Optional[EarthRangerSource] = Field(
+        default_factory=lambda: EarthRangerSource.model_validate({"query": None}),
+        title="Source",
+    )
     group_by: Optional[str] = Field(
         "type_name",
         description="Column used to group features in the map legend e.g. 'Feature Type' shows one legend entry per feature type.",
@@ -577,29 +520,26 @@ class FormData(BaseModel):
         None, description="Choose the period of time to analyze.", title="Time Range"
     )
     base_maps: Optional[BaseMaps] = Field(None, title="Define Base Maps")
+    Spatial_Features: Optional[SpatialFeatures] = Field(
+        None,
+        alias="Spatial Features",
+        description="Fetch spatial features from EarthRanger and render them as a map layer.",
+    )
     ranger_name: Optional[RangerName] = Field(None, title="Ranger Name")
     template_path: Optional[TemplatePath] = Field(None, title="Set Template Path")
     Patrol_and_Event_Types: Optional[PatrolAndEventTypes] = Field(
         None, alias="Patrol and Event Types", description=""
     )
     field_: Optional[FieldModel] = Field(None, description="")
-    Report_Tables: Optional[ReportTables] = Field(
-        None, alias="Report Tables", description="Prepare data tables for the report."
-    )
-    Spatial_Features: Optional[SpatialFeatures] = Field(
+    Patrol_Summary_Table: Optional[PatrolSummaryTable] = Field(
         None,
-        alias="Spatial Features",
-        description="Fetch spatial features from EarthRanger and render them as a map layer.",
+        alias="Patrol Summary Table",
+        description="Prepare the patrol data table for the report.",
     )
-    Local_Spatial_Features: Optional[LocalSpatialFeatures] = Field(
+    Event_Summary_Table: Optional[EventSummaryTable] = Field(
         None,
-        alias="Local Spatial Features",
-        description="Load spatial features from a local file and render them as a map layer.",
-    )
-    Patrol_Maps: Optional[PatrolMaps] = Field(
-        None,
-        alias="Patrol Maps",
-        description="Create maps for patrol trajectories and events.",
+        alias="Event Summary Table",
+        description="Prepare the event data table for the report.",
     )
     download_attachments: Optional[DownloadAttachments] = Field(
         None, title="Download Attachments"
